@@ -1,6 +1,7 @@
 import os
 import sqlite3
 from flask import Flask, jsonify, request, send_from_directory
+from werkzeug.exceptions import HTTPException
 
 import database as db
 from search_engine import ALGORITHMS, CIA_LEVELS, run_search, severity_from_score
@@ -43,6 +44,15 @@ def resolve_patched(data, graph):
         valid_ids = {e["id"] for e in graph["edges"]}
         return [eid for eid in data["patched"] if eid in valid_ids]
     return graph["patchedEdges"]
+
+
+@app.errorhandler(Exception)
+def handle_api_error(err):
+    if isinstance(err, HTTPException):
+        return err
+    if request.path.startswith("/api/"):
+        return jsonify({"error": str(err)}), 500
+    raise err
 
 
 @app.route("/")

@@ -483,7 +483,7 @@
           editionBadge: 'InfoSec Edition',
           dbConnecting: 'Connecting DB...',
           dbConnected: s => `SQLite DB · ${s.edges} Edges · ${s.scenarios} Scenarios`,
-          dbOffline: 'Backend Offline (Run app.py)',
+          dbOffline: 'Backend Offline',
           appSubtitleTitle: '— Attack-Path Discovery Analyzer',
           appSubtitle: 'Full-Stack Flask + SQLite · CVSS v3.1, CIA Triad & Defense-in-Depth Mitigation Advisor',
           btnCompareAll: 'Compare All 6',
@@ -627,7 +627,7 @@
           editionBadge: 'وەشانی ئاسایشی زانیاری',
           dbConnecting: 'پەیوەستبوون بە داتابەیس...',
           dbConnected: s => `داتابەیسی SQLite · ${s.edges} کەلێن · ${s.scenarios} سیناریۆ`,
-          dbOffline: 'سێرڤەری باکئێند ناچالاکە (app.py کارپێبکە)',
+          dbOffline: 'سێرڤەری باکئێند ناچالاکە',
           appSubtitleTitle: '— شیکەرەوەی ڕێڕەوی هێرشی سایبەری',
           appSubtitle: 'باکئێندی Flask + داتابەیسی SQLite · نمرەی CVSS v3.1، سێگۆشەی CIA و ڕاوێژکاری بەرگری',
           btnCompareAll: 'بەراوردی هەر ٦',
@@ -1931,7 +1931,7 @@
           state.patchedEdges = new Set(graph.patchedEdges || []);
         } catch (err) {
           updateDbStatusBadge(null, true);
-          showToast(I18N[state.lang].dbOffline);
+          showToast(`${I18N[state.lang].dbOffline}: ${err.message}`);
           return;
         }
 

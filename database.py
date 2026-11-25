@@ -388,7 +388,11 @@ def get_connection(db_path=None):
 
 def init_db(db_path=None):
     with get_connection(db_path) as conn:
-        conn.execute("PRAGMA journal_mode = WAL;")
+        # Use standard DELETE journal mode for full compatibility on networked filesystems (e.g., PythonAnywhere NFS)
+        try:
+            conn.execute("PRAGMA journal_mode = DELETE;")
+        except sqlite3.OperationalError:
+            pass
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS nodes (
