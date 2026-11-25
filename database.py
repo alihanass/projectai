@@ -599,6 +599,57 @@ def fetch_graph(db_path=None):
     return {"nodes": nodes, "edges": edges, "patchedEdges": patched_ids}
 
 
+def create_node_with_edges(node_data, edges_data, db_path=None):
+    with get_connection(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO nodes (id, label, ku_label, role, ku_role, tag, x, y, h)
+            VALUES (:id, :label, :kuLabel, :role, :kuRole, :tag, :x, :y, :h)
+            """,
+            node_data,
+        )
+        for e in edges_data:
+            conn.execute(
+                """
+                INSERT INTO edges (
+                    id, from_node, to_node, cost, vuln, curve_x, t_pos,
+                    cvss, severity, vector, cia_c, cia_i, cia_a,
+                    technique_en, technique_ku, policy_en, policy_ku,
+                    mechanism_en, mechanism_ku, is_patched, patched_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?, NULL, NULL,
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, 0, NULL
+                )
+                """,
+                (
+                    e["id"], e["from"], e["to"], e["cost"], e["vuln"],
+                    e["cvss"], e["severity"], e["vector"], e["cia"]["c"], e["cia"]["i"], e["cia"]["a"],
+                    e["technique"]["en"], e["technique"]["ku"], e["policy"]["en"], e["policy"]["ku"],
+                    e["mechanism"]["en"], e["mechanism"]["ku"],
+                ),
+            )
+        conn.commit()
+        node_row = conn.execute("SELECT * FROM nodes WHERE id = ?", (node_data["id"],)).fetchone()
+        edge_rows = [
+            conn.execute("SELECT * FROM edges WHERE id = ?", (e["id"],)).fetchone()
+            for e in edges_data
+        ]
+    return row_to_node(node_row), [row_to_edge(r) for r in edge_rows if r is not None]
+
+
+def update_node_position(node_id, x, y, db_path=None):
+    with get_connection(db_path) as conn:
+        row = conn.execute("SELECT * FROM nodes WHERE id = ?", (node_id,)).fetchone()
+        if row is None:
+            return None
+        conn.execute("UPDATE nodes SET x = ?, y = ? WHERE id = ?", (int(x), int(y), node_id))
+        conn.commit()
+        updated = conn.execute("SELECT * FROM nodes WHERE id = ?", (node_id,)).fetchone()
+        return row_to_node(updated)
+
+
 def set_edge_patched(edge_id, patched_bool, db_path=None):
     now = utc_now() if patched_bool else None
     with get_connection(db_path) as conn:

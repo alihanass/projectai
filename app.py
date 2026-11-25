@@ -1,4 +1,6 @@
+import math
 import os
+import re
 import sqlite3
 from flask import Flask, jsonify, request, send_from_directory
 from werkzeug.exceptions import HTTPException
@@ -68,6 +70,161 @@ def health():
 @app.route("/api/graph")
 def get_graph():
     return jsonify(db.fetch_graph())
+
+
+def find_clean_node_position(nodes, connect_from=None, connect_to=None):
+    node_map = {n["id"]: n for n in nodes}
+    if connect_from in node_map and connect_to in node_map:
+        ax = (node_map[connect_from]["x"] + node_map[connect_to]["x"]) / 2.0
+        ay = (node_map[connect_from]["y"] + node_map[connect_to]["y"]) / 2.0
+    elif connect_from in node_map:
+        ax = min(780.0, node_map[connect_from]["x"] + 135.0)
+        ay = float(node_map[connect_from]["y"])
+    elif connect_to in node_map:
+        ax = max(95.0, node_map[connect_to]["x"] - 135.0)
+        ay = float(node_map[connect_to]["y"])
+    else:
+        ax, ay = 440.0, 215.0
+
+    candidates = []
+    # Concentric rings around preferred anchor
+    for radius in (0, 65, 110, 155, 200):
+        steps = 1 if radius == 0 else 12
+        for k in range(steps):
+            ang = (2 * math.pi * k) / steps
+            cx = round(max(72, min(808, ax + radius * math.cos(ang))))
+            cy = round(max(56, min(368, ay + radius * math.sin(ang))))
+            candidates.append((cx, cy))
+    # Fallback full-canvas grid
+    for gx in range(90, 800, 70):
+        for gy in range(65, 365, 65):
+            candidates.append((gx, gy))
+
+    best_pos = (440, 215)
+    best_score = -1e9
+    for cx, cy in candidates:
+        min_dist = min((math.hypot(cx - n["x"], cy - n["y"]) for n in nodes), default=999.0)
+        anchor_dist = math.hypot(cx - ax, cy - ay)
+        # Prefer clear spots (>= 92px from every node) closest to anchor
+        if min_dist >= 92:
+            score = 10000.0 - anchor_dist + min(min_dist, 160.0) * 0.5
+        else:
+            score = min_dist * 10.0 - anchor_dist * 0.2
+        if score > best_score:
+            best_score = score
+            best_pos = (cx, cy)
+    return int(best_pos[0]), int(best_pos[1])
+
+
+@app.route("/api/nodes", methods=["POST"])
+def create_node():
+    data = request.get_json(silent=True) or {}
+    raw_short = str(data.get("shortName") or data.get("tag") or data.get("id") or "").strip()
+    label = str(data.get("label") or "").strip()
+    if not raw_short or len(raw_short) > 20:
+        return jsonify({"error": "Node ID / Short Name is required (1–20 chars)"}), 400
+    if not label or len(label) > 40:
+        return jsonify({"error": "Display Label is required (1–40 chars)"}), 400
+
+    node_id = re.sub(r"[^a-z0-9_]+", "_", raw_short.lower()).strip("_")
+    if not node_id:
+        return jsonify({"error": "Node ID must contain letters or numbers"}), 400
+
+    tag = raw_short.upper()[:6]
+    h_val = bounded_int(data.get("h"), 3, 0, 50)
+    edge_cost = bounded_int(data.get("cost"), 3, 1, 20)
+    connect_from = str(data.get("connectFrom") or "").strip() or None
+    connect_to = str(data.get("connectTo") or "").strip() or None
+
+    graph = db.fetch_graph()
+    existing_ids = {n["id"] for n in graph["nodes"]}
+    if node_id in existing_ids:
+        return jsonify({"error": f"Node '{raw_short}' already exists"}), 409
+    if connect_from and connect_from not in existing_ids:
+        return jsonify({"error": f"Invalid 'Connect From' node '{connect_from}'"}), 400
+    if connect_to and connect_to not in existing_ids:
+        return jsonify({"error": f"Invalid 'Connect To' node '{connect_to}'"}), 400
+
+    x = data.get("x")
+    y = data.get("y")
+    if x is not None and y is not None:
+        px = bounded_int(x, 440, 52, 828)
+        py = bounded_int(y, 215, 48, 372)
+    else:
+        px, py = find_clean_node_position(graph["nodes"], connect_from, connect_to)
+
+    node_data = {
+        "id": node_id,
+        "label": label,
+        "kuLabel": label,
+        "role": "Custom",
+        "kuRole": "گرێی زیادکراو",
+        "tag": tag,
+        "x": px,
+        "y": py,
+        "h": h_val,
+    }
+
+    existing_edge_ids = {e["id"] for e in graph["edges"]}
+    next_num = len(existing_edge_ids) + 1
+
+    def alloc_edge_id():
+        nonlocal next_num
+        while f"e{next_num}" in existing_edge_ids:
+            next_num += 1
+        eid = f"e{next_num}"
+        existing_edge_ids.add(eid)
+        return eid
+
+    def build_edge(src, dst):
+        cvss = 7.5
+        return {
+            "id": alloc_edge_id(),
+            "from": src,
+            "to": dst,
+            "cost": edge_cost,
+            "vuln": "Lateral Pivot",
+            "cvss": cvss,
+            "severity": severity_from_score(cvss),
+            "vector": "AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:L",
+            "cia": {"c": "High", "i": "High", "a": "Low"},
+            "technique": {
+                "en": f"Lateral Network Exploit Path ({src} → {dst})",
+                "ku": f"ڕێگای قۆستنەوەی ناوخۆیی نێتۆرک ({src} → {dst})",
+            },
+            "policy": {
+                "en": "Zero-Trust Segmentation & Least Privilege Access Policy",
+                "ku": "سیاسەتی دابەشکردنی نێتۆرکی Zero-Trust و کەمترین دەسەڵات",
+            },
+            "mechanism": {
+                "en": "Network Micro-Segmentation, MFA & Endpoint Detection and Response (EDR)",
+                "ku": "جیاکردنەوەی وردی نێتۆرک، پشتڕاستکردنەوەی MFA و سیستەمی EDR",
+            },
+        }
+
+    new_edges = []
+    if connect_from:
+        new_edges.append(build_edge(connect_from, node_id))
+    if connect_to:
+        new_edges.append(build_edge(node_id, connect_to))
+
+    try:
+        created_node, created_edges = db.create_node_with_edges(node_data, new_edges)
+    except sqlite3.IntegrityError:
+        return jsonify({"error": f"Node '{raw_short}' already exists"}), 409
+
+    return jsonify({"node": created_node, "edges": created_edges, "graph": db.fetch_graph()}), 201
+
+
+@app.route("/api/nodes/<node_id>/position", methods=["PATCH"])
+def move_node(node_id):
+    data = request.get_json(silent=True) or {}
+    x = bounded_int(data.get("x"), 440, 52, 828)
+    y = bounded_int(data.get("y"), 215, 48, 372)
+    updated = db.update_node_position(node_id, x, y)
+    if updated is None:
+        return jsonify({"error": f"Unknown node '{node_id}'"}), 404
+    return jsonify({"node": updated})
 
 
 @app.route("/api/edges/<edge_id>/patch", methods=["PATCH", "POST"])

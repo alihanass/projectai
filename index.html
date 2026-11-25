@@ -37,8 +37,11 @@
       filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.95));
     }
     .node-group {
-      cursor: pointer;
+      cursor: grab;
       transition: transform 0.2s ease;
+    }
+    .node-group:active {
+      cursor: grabbing;
     }
     @keyframes pulseRing {
       0% { stroke-opacity: 0.9; stroke-width: 2; }
@@ -69,33 +72,19 @@
   </style>
 </head>
 <body class="min-h-screen antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
-  <!-- Top Navbar -->
+  <!-- Top Navbar (Minimalist) -->
   <header class="sticky top-0 z-30 border-b border-slate-800/90 bg-slate-950/90 backdrop-blur-md">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
           <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
         </div>
-        <div>
-          <div class="flex flex-wrap items-center gap-2">
-            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white leading-tight">
-              CyberShield AI <span data-i18n="appSubtitleTitle" class="text-cyan-400 font-semibold">— Attack-Path Discovery Analyzer</span>
-            </h1>
-            <span data-i18n="editionBadge" class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">InfoSec Edition</span>
-            <span id="dbStatusBadge" class="inline-flex items-center gap-1.5 text-[10px] font-mono-code px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-              <span id="dbStatusDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
-              <span id="dbStatusText" data-i18n="dbConnecting">Connecting DB...</span>
-            </span>
-          </div>
-          <p data-i18n="appSubtitle" class="text-xs text-slate-400">
-            Full-Stack Flask + SQLite · CVSS v3.1, CIA Triad &amp; Defense-in-Depth Mitigation Advisor
-          </p>
-        </div>
+        <h1 class="text-base sm:text-lg font-bold tracking-tight text-white leading-tight">CyberShield AI</h1>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="btnLangToggle" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 font-semibold text-xs sm:text-sm transition" title="Switch English / Kurdish Sorani">
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="btnLangToggle" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 font-semibold text-xs sm:text-sm transition" title="Select Language">
           <i data-lucide="languages" class="w-4 h-4"></i>
-          <span id="langToggleLabel">کوردی</span>
+          <span id="langToggleLabel">English</span>
         </button>
         <button id="btnCompareAll" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs sm:text-sm transition shadow-md shadow-cyan-500/20">
           <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
@@ -133,6 +122,10 @@
           <button id="btnReset" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-medium text-xs sm:text-sm transition">
             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
             <span data-i18n="btnReset">Reset</span>
+          </button>
+          <button id="btnAddNode" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 font-semibold text-xs sm:text-sm transition">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span data-i18n="btnAddNode">Add Node</span>
           </button>
         </div>
       </div>
@@ -421,6 +414,106 @@
     </section>
   </main>
 
+  <!-- Add Node Modal -->
+  <div id="addNodeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4">
+    <div class="glass-card w-full max-w-md rounded-2xl p-5 shadow-2xl border border-slate-700/80 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-400"></i>
+          <span data-i18n="modalAddNodeTitle">Add New Network Node</span>
+        </h3>
+        <button id="btnCloseAddNode" type="button" class="text-slate-400 hover:text-white transition p-1 rounded-lg hover:bg-slate-800" aria-label="Close">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="addNodeForm" class="space-y-3 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="inputNodeShort" class="block text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1" data-i18n="lblNodeShort">Node ID / Short Name</label>
+            <input id="inputNodeShort" type="text" required maxlength="16" placeholder="e.g., DB2" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-400 font-mono-code" />
+          </div>
+          <div>
+            <label for="inputNodeH" class="block text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1" data-i18n="lblNodeH">Heuristic Value (h)</label>
+            <input id="inputNodeH" type="number" required min="0" max="50" value="3" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-400 font-mono-code" />
+          </div>
+        </div>
+
+        <div>
+          <label for="inputNodeLabel" class="block text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1" data-i18n="lblNodeLabel">Display Label</label>
+          <input id="inputNodeLabel" type="text" required maxlength="40" placeholder="e.g., Cloud Server" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-400" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
+          <div>
+            <label for="selectConnectFrom" class="block text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1" data-i18n="lblConnectFrom">Connect From (Optional)</label>
+            <select id="selectConnectFrom" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"></select>
+          </div>
+          <div>
+            <label for="selectConnectTo" class="block text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1" data-i18n="lblConnectTo">Connect To (Optional)</label>
+            <select id="selectConnectTo" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"></select>
+          </div>
+        </div>
+
+        <div>
+          <label for="inputEdgeCost" class="block text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1" data-i18n="lblEdgeCost">Connection Cost g(n)</label>
+          <input id="inputEdgeCost" type="number" min="1" max="20" value="3" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-mono-code" />
+        </div>
+
+        <p data-i18n="modalDragHint" class="text-[11px] text-slate-400">Tip: You can drag any node directly on the graph to reposition it.</p>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+          <button id="btnCancelAddNode" type="button" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-medium transition" data-i18n="btnCancel">Cancel</button>
+          <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold transition shadow-md shadow-emerald-500/20">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span data-i18n="btnCreateNode">Create Node</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Language Selection Modal -->
+  <div id="langModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+    <div class="glass-card w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-700/80 space-y-5 relative">
+      <button id="btnCloseLangModal" type="button" class="hidden absolute top-4 end-4 text-slate-400 hover:text-white transition p-1.5 rounded-lg hover:bg-slate-800" aria-label="Close">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+      <div class="text-center space-y-2">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/25">
+          <i data-lucide="languages" class="w-6 h-6 text-white"></i>
+        </div>
+        <h2 class="text-lg font-bold text-white tracking-tight">CyberShield AI</h2>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Choose your language · زمانەکەت هەڵبژێرە · اختر لغتك
+        </p>
+      </div>
+      <div class="grid grid-cols-1 gap-2.5">
+        <button type="button" data-choose-lang="en" class="lang-choice-btn w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-900/90 hover:bg-indigo-500/20 border border-slate-700 hover:border-indigo-400/60 text-start transition group">
+          <div>
+            <div class="text-sm font-bold text-white">English</div>
+            <div class="text-[11px] text-slate-400">Left-to-Right (LTR)</div>
+          </div>
+          <span class="font-mono-code text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-cyan-300 border border-slate-700 group-hover:border-indigo-400/40">EN</span>
+        </button>
+        <button type="button" data-choose-lang="ku" dir="rtl" class="lang-choice-btn w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-900/90 hover:bg-indigo-500/20 border border-slate-700 hover:border-indigo-400/60 text-start transition group">
+          <div>
+            <div class="text-sm font-bold text-white">کوردی</div>
+            <div class="text-[11px] text-slate-400">کوردیی سۆرانی (RTL)</div>
+          </div>
+          <span class="font-mono-code text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-cyan-300 border border-slate-700 group-hover:border-indigo-400/40">KU</span>
+        </button>
+        <button type="button" data-choose-lang="ar" dir="rtl" class="lang-choice-btn w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-900/90 hover:bg-indigo-500/20 border border-slate-700 hover:border-indigo-400/60 text-start transition group">
+          <div>
+            <div class="text-sm font-bold text-white">العربية</div>
+            <div class="text-[11px] text-slate-400">اللغة العربية (RTL)</div>
+          </div>
+          <span class="font-mono-code text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-cyan-300 border border-slate-700 group-hover:border-indigo-400/40">AR</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (() => {
       const ALGO_META = {
@@ -434,13 +527,9 @@
 
       const I18N = {
         en: {
-          langBtn: 'کوردی',
-          editionBadge: 'InfoSec Edition',
-          dbConnecting: 'Connecting DB...',
-          dbConnected: s => `SQLite DB · ${s.edges} Edges · ${s.searchRuns} Runs`,
+          langBtn: 'English',
+          btnAddNode: 'Add Node',
           dbOffline: 'Backend Offline',
-          appSubtitleTitle: '— Attack-Path Discovery Analyzer',
-          appSubtitle: 'Full-Stack Flask + SQLite · CVSS v3.1, CIA Triad & Defense-in-Depth Mitigation Advisor',
           btnCompareAll: 'Compare All 6',
           btnRestore: 'Restore Network',
           btnRun: 'Run Search',
@@ -557,16 +646,26 @@
           safeLabel: 'SAFE',
           highCount: n => `${n} High`,
           medCount: n => `${n} Med`,
-          lowCount: n => `${n} Low`
+          lowCount: n => `${n} Low`,
+          modalAddNodeTitle: 'Add New Network Node',
+          lblNodeShort: 'Node ID / Short Name',
+          lblNodeLabel: 'Display Label',
+          lblNodeH: 'Heuristic Value (h)',
+          lblConnectFrom: 'Connect From (Optional)',
+          lblConnectTo: 'Connect To (Optional)',
+          lblEdgeCost: 'Connection Cost g(n)',
+          optNone: '— None —',
+          modalDragHint: 'Tip: You can drag any node directly on the graph to reposition it.',
+          btnCancel: 'Cancel',
+          btnCreateNode: 'Create Node',
+          phNodeShort: 'e.g., DB2',
+          phNodeLabel: 'e.g., Cloud Server',
+          toastNodeAdded: (label, h) => `Added node "${label}" (h=${h}) to the attack graph.`
         },
         ku: {
-          langBtn: 'English',
-          editionBadge: 'وەشانی ئاسایشی زانیاری',
-          dbConnecting: 'پەیوەستبوون بە داتابەیس...',
-          dbConnected: s => `داتابەیسی SQLite · ${s.edges} کەلێن · ${s.searchRuns} گەڕان`,
+          langBtn: 'کوردی',
+          btnAddNode: 'زیادکردنی گرێ',
           dbOffline: 'سێرڤەری باکئێند ناچالاکە',
-          appSubtitleTitle: '— شیکەرەوەی ڕێڕەوی هێرشی سایبەری',
-          appSubtitle: 'باکئێندی Flask + داتابەیسی SQLite · نمرەی CVSS v3.1، سێگۆشەی CIA و ڕاوێژکاری بەرگری',
           btnCompareAll: 'بەراوردی هەر ٦',
           btnRestore: 'گەڕاندنەوەی نێتۆرک',
           btnRun: 'دەستپێکردن',
@@ -683,8 +782,191 @@
           safeLabel: 'پارێزراو',
           highCount: n => `${n} بەرز`,
           medCount: n => `${n} مامناوەند`,
-          lowCount: n => `${n} نزم`
+          lowCount: n => `${n} نزم`,
+          modalAddNodeTitle: 'زیادکردنی گرێی نوێی نێتۆرک',
+          lblNodeShort: 'کورتکراوە / IDـی گرێ',
+          lblNodeLabel: 'ناوی نیشاندراو',
+          lblNodeH: 'بەهای Heuristic (h)',
+          lblConnectFrom: 'بەستنەوە لە (ئارەزوومەندانە)',
+          lblConnectTo: 'بەستنەوە بۆ (ئارەزوومەندانە)',
+          lblEdgeCost: 'تێچووی پەیوەندی g(n)',
+          optNone: '— هیچ —',
+          modalDragHint: 'تێبینی: دەتوانیت هەر گرێیەک لەسەر گرافەکە ڕابکێشیت بۆ گۆڕینی شوێنەکەی.',
+          btnCancel: 'هەڵوەشاندنەوە',
+          btnCreateNode: 'دروستکردنی گرێ',
+          phNodeShort: 'بۆ نموونە: DB2',
+          phNodeLabel: 'بۆ نموونە: Cloud Server',
+          toastNodeAdded: (label, h) => `گرێی "${label}" (h=${h}) زیادکرا بۆ گرافی هێرش.`
+        },
+        ar: {
+          langBtn: 'العربية',
+          btnAddNode: 'إضافة عقدة',
+          dbOffline: 'الخادم الخلفي غير متصل',
+          btnCompareAll: 'مقارنة الكل (6)',
+          btnRestore: 'استعادة الشبكة',
+          btnRun: 'بدء البحث',
+          btnStep: 'خطوة',
+          btnReset: 'إعادة ضبط',
+          lblStart: 'نقطة الدخول (البداية)',
+          lblGoal: 'الهدف الأساسي (الغاية)',
+          lblDls: 'حد العمق لـ DLS (l)',
+          lblSpeed: 'سرعة الحركة',
+          graphTitle: 'مخطط مسار الهجوم لشبكة المؤسسة',
+          graphHint: 'انقر على أي رابط ثغرة لـ <span class="text-indigo-300 font-medium">الفحص والمعالجة</span> (أو <span class="text-emerald-400 font-medium">نقر مزدوج / الإغلاق السريع</span> لحظره وحفظه في القاعدة).',
+          modeInspect: 'فحص',
+          modeQuickPatch: 'إغلاق سريع',
+          legVisited: 'تمت زيارتها',
+          legFrontier: 'الحدود (Frontier)',
+          legPath: 'مسار الهجوم',
+          legPatched: 'تمت معالجتها',
+          cvssLegendLbl: 'CVSS v3.1:',
+          sevCritical: 'حرج',
+          sevHigh: 'مرتفع',
+          sevMedium: 'متوسط',
+          sevLow: 'منخفض',
+          sevSecured: 'محمي',
+          kpiAlgoLbl: 'الخوارزمية',
+          kpiCostLbl: 'تكلفة الهجوم g(n)',
+          kpiRiskLbl: 'مستوى المخاطر (CVSS)',
+          kpiExpLbl: 'العقد المفحوصة',
+          kpiSpaceLbl: 'أقصى حجم للحدود (Space)',
+          tabTrace: 'التتبع المباشر',
+          tabAdvisor: 'مستشار الدفاع',
+          tabFormulation: 'صياغة الذكاء الاصطناعي',
+          lblDiscoveredPath: 'مسار الهجوم المكتشف',
+          lblFrontier: 'صف / مكدس الحدود الحالي (Frontier)',
+          lblExecLog: 'سجل التنفيذ خطوة بخطوة',
+          ciaPathTitle: 'تأثير مثلث CIA على مسار الهجوم النشط',
+          ciaC: 'السرية (C)',
+          ciaI: 'السلامة والنزاهة (I)',
+          ciaA: 'التوافر (A)',
+          ciaNoPath: 'لا يوجد مسار هجوم نشط — جميع أركان مثلث CIA محمية حالياً.',
+          ciaPending: 'قم بتشغيل البحث لتقييم مخاطر السرية والسلامة والتوافر.',
+          ciaHopsMeta: (hops, peak) => `${hops} قفزات · أعلى CVSS ${peak.toFixed(1)}`,
+          ciaSecuredMeta: '0.0 / 10 · محمي',
+          advSelectEdge: 'اختر رابط ثغرة للفحص',
+          advVulnTech: 'الثغرة وتقنية الهجوم',
+          advCvssTitle: 'درجة خطورة CVSS v3.1',
+          advCiaTitle: 'تحليل تأثير مثلث CIA',
+          advPolicyTitle: 'السياسة الأمنية الموصى بها (Security Policy)',
+          advMechTitle: 'آلية الدفاع والتخفيف الموصى بها (Security Mechanism)',
+          advBtnPatch: 'محاكاة المعالجة (إغلاق الثغرة وحفظها)',
+          advBtnUnpatch: 'استعادة الثغرة (إعادة فتح الرابط)',
+          advStatusActive: 'ثغرة نشطة',
+          advStatusPatched: 'تمت المعالجة / محظورة',
+          advOnActivePath: 'على مسار الهجوم النشط',
+          advHopCost: c => `تكلفة الاستغلال g=${c}`,
+          advDefenseNote: 'يتم الحفظ في SQLite. الإغلاق يحجب المسار ويعيد التخطيط تلقائياً لإثبات الدفاع متعدد الطبقات.',
+          advReplanProtected: 'تحقق الدفاع متعدد الطبقات: لم يعد هناك أي مسار هجوم يصل إلى الهدف الأساسي!',
+          advReplanAlt: (cost, risk) => `إعادة التخطيط المغلق: المسار البديل المكشوف تكلفته g=${cost} ومستوى مخاطره ${risk}/10.`,
+          benchTitle: 'مقارنة أداء الخوارزميات (البحث غير الموجه مقابل الموجه)',
+          benchSub: 'تقييم الاكتمال، مثالية التكلفة، مستوى المخاطر (CVSS)، الوقت (العقد المفحوصة)، والمساحة (حجم الحدود).',
+          benchBadge: 'مقارنة مباشرة',
+          thAlgo: 'الخوارزمية',
+          thType: 'النوع',
+          thStatus: 'الحالة',
+          thHops: 'القفزات',
+          thCost: 'التكلفة g(n)',
+          thRisk: 'المخاطر (CVSS)',
+          thExpanded: 'المفحوصة',
+          thSpace: 'أقصى مساحة',
+          searchHistTitle: 'سجل عمليات البحث',
+          searchHistSub: 'سجل مسارات الهجوم السابقة المحفوظة في قاعدة بيانات SQLite.',
+          btnClearHistory: 'مسح السجل',
+          thLogTime: 'الوقت (UTC)',
+          thHistRoute: 'البداية ← الهدف',
+          thHistCia: 'CIA (C/I/A)',
+          emptyHistory: 'لا يوجد سجل بحث مسجل حتى الآن.',
+          formStateTitle: 'فضاء الحالات (State Space)',
+          formStateDesc: 'عقد وخوادم الشبكة المترابطة من الإنترنت الخارجي حتى قاعدة البيانات الأساسية.',
+          formActionTitle: 'الأفعال ونموذج الانتقال (Actions & Transition)',
+          formActionDesc: 'استغلال أي ثغرة غير معالجة (مثل التصيد أو حقن SQL) ينقل المهاجم إلى المضيف المجاور.',
+          formCostTitle: 'تكلفة المسار g(n)',
+          formCostDesc: 'درجة صعوبة الاستغلال لكل قفزة (1–6). كلما قلّت التكلفة كانت الثغرة أسهل وأخطر.',
+          formHeurTitle: 'دالة الاستدلال h(n)',
+          formHeurDesc: 'تقدير مقبول لأقل جهد متبقٍ للوصول إلى قاعدة البيانات الأساسية (h(Goal) = 0).',
+          formRiskTitle: 'تسجيل مخاطر CVSS v3.1 ومثلث CIA',
+          formRiskDesc: 'يحمل كل رابط ثغرة درجة CVSS v3.1 (من 5.3 إلى 9.8) وتقييمات السرية والسلامة والتوافر. يجمع مقياس المخاطر الكلي بين أعلى CVSS (60%) ومتوسط CVSS (40%).',
+          formClosedTitle: 'الدفاع متعدد الطبقات والحفظ في القاعدة',
+          formClosedDesc: 'يتم حفظ كل عملية معالجة وبحث وعقدة جديدة في قاعدة بيانات SQLite عبر واجهة Flask REST API.',
+          chartCost: 'تكلفة مسار الهجوم g(n)',
+          chartExpanded: 'العقد المفحوصة (الوقت)',
+          emptyFrontier: 'فارغ',
+          pressRun: 'اضغط على <span class="text-emerald-400 font-semibold">بدء البحث</span> لاكتشاف مسار هجوم.',
+          patchedCount: n => `${n} معالجة`,
+          stepOf: (a, b) => `خطوة ${a} / ${b}`,
+          uninformed: 'غير موجه',
+          informed: 'موجه',
+          optimal: 'الأمثل',
+          found: 'تم العثور',
+          noPath: 'لا يوجد مسار',
+          cutoff: l => `توقف عند الحد (l=${l})`,
+          foundAtL: l => `تم العثور (l=${l})`,
+          exploring: node => `<span class="text-cyan-300">جاري الفحص...</span> يتم الآن فحص <span class="text-white font-semibold">${node}</span>`,
+          noPathReached: (status, goal) => `<span class="text-amber-400 font-semibold">${status}:</span> لم يصل أي مسار هجوم إلى <span class="text-emerald-300 font-semibold">${goal}</span>.`,
+          pathSummaryPill: (cost, hops) => `التكلفة g=${cost} (${hops} قفزات)`,
+          riskScoreFmt: (score, sev) => `${score.toFixed(1)} / 10 (${sev})`,
+          toastCompare: 'تمت مقارنة جميع الخوارزميات الـ 6. انقر على أي صف لمشاهدة الحركة!',
+          toastRestore: 'تمت استعادة جميع الثغرات إلى الحالة النشطة في قاعدة البيانات.',
+          toastPatched: (vuln, from, to) => `تمت المعالجة والحفظ: ${vuln} (${from} ← ${to})`,
+          toastReopened: (vuln, from, to) => `تمت إعادة فتح الثغرة: ${vuln} (${from} ← ${to})`,
+          toastInspect: (vuln, cvss, sev) => `فحص ${vuln} — CVSS ${cvss.toFixed(1)} (${sev})`,
+          toastModeInspect: 'وضع النقر: فحص تفاصيل الثغرة في مستشار الدفاع (نقر مزدوج للإغلاق السريع).',
+          toastModePatch: 'وضع النقر: الإغلاق السريع — النقر على أي رابط يغلقه أو يفتحه فوراً في SQLite.',
+          toastHistoryCleared: 'تم مسح سجل عمليات البحث من قاعدة البيانات.',
+          clickToInspectHint: 'انقر لفحص القفزات:',
+          safeLabel: 'محمي',
+          highCount: n => `${n} مرتفع`,
+          medCount: n => `${n} متوسط`,
+          lowCount: n => `${n} منخفض`,
+          modalAddNodeTitle: 'إضافة عقدة شبكة جديدة',
+          lblNodeShort: 'معرف / الاسم المختصر للعقدة',
+          lblNodeLabel: 'اسم العرض',
+          lblNodeH: 'قيمة الاستدلال (h)',
+          lblConnectFrom: 'الربط من (اختياري)',
+          lblConnectTo: 'الربط إلى (اختياري)',
+          lblEdgeCost: 'تكلفة الاتصال g(n)',
+          optNone: '— لا شيء —',
+          modalDragHint: 'تلميح: يمكنك سحب أي عقدة مباشرة على المخطط لتغيير موقعها.',
+          btnCancel: 'إلغاء',
+          btnCreateNode: 'إنشاء العقدة',
+          phNodeShort: 'مثال: DB2',
+          phNodeLabel: 'مثال: Cloud Server',
+          toastNodeAdded: (label, h) => `تمت إضافة العقدة "${label}" (h=${h}) إلى مخطط الهجوم.`
         }
+      };
+
+      const AR_NODES = {
+        internet:   { label: 'الإنترنت', role: 'المهاجم' },
+        firewall:   { label: 'جدار الحماية الطرفي', role: 'المحيط' },
+        web_srv:    { label: 'خادم الويب', role: 'منطقة DMZ' },
+        vpn_gw:     { label: 'بوابة VPN', role: 'وصول عن بُعد' },
+        emp_pc:     { label: 'حاسوب الموظف', role: 'محطة عمل' },
+        app_srv:    { label: 'خادم التطبيقات', role: 'داخلي' },
+        mail_srv:   { label: 'خادم البريد', role: 'داخلي' },
+        ad_srv:     { label: 'الدليل النشط (AD)', role: 'الهوية' },
+        backup_srv: { label: 'خادم النسخ الاحتياطي', role: 'التخزين' },
+        core_db:    { label: 'قاعدة البيانات الأساسية', role: 'الأصل الحساس' }
+      };
+
+      const AR_EDGES = {
+        e1:  { technique: 'تجاوز قواعد أو منافذ جدار الحماية عبر منفذ إدارة مكشوف', policy: 'سياسة المنع الافتراضي للمحيط وإدارة التغييرات', mechanism: 'تشديد قواعد جدار الحماية NGFW وإغلاق المنافذ ونظام منع التطفل (IPS)' },
+        e2:  { technique: 'هجوم حقن SQL على نقطة نهاية الويب العامة (OWASP A03 / MITRE T1190)', policy: 'سياسة البرمجة الآمنة والتحقق الإلزامي من المدخلات', mechanism: 'الاستعلامات المعلمة (Parameterized Queries) وتنقية المدخلات وجدار حماية التطبيقات (WAF)' },
+        e3:  { technique: 'حشو بيانات الاعتماد وهجوم رش كلمات المرور الآلي (MITRE T1110.004)', policy: 'سياسة الوصول عن بُعد بانعدام الثقة (Zero-Trust) والمصادقة القوية', mechanism: 'المصادقة متعددة العوامل (MFA) وتحديد معدل المحاولات وقفل الحساب' },
+        e4:  { technique: 'التصيد الموجه عبر مرفقات أو روابط خبيثة لسرقة الصلاحيات (MITRE T1566)', policy: 'سياسة التوعية الأمنية وحوكمة أمن البريد الإلكتروني', mechanism: 'تصفية DMARC/DKIM/SPF وبوابة البريد الآمنة ونظام الكشف والاستجابة (EDR)' },
+        e5:  { technique: 'استغلال قواعد قائمة التحكم بالوصول (ACL) المتساهلة في الشبكة', policy: 'سياسة أقل امتياز وتجزئة الشبكة الدقيقة', mechanism: 'التدقيق الآلي لقواعد ACL وعزل الشبكات (VLAN) والوصول بنموذج ZTNA' },
+        e6:  { technique: 'استغلال خوارزميات TLS الضعيفة وخفض مستوى البروتوكول (MITM)', policy: 'سياسة معايير التشفير وحماية البيانات أثناء النقل', mechanism: 'فرض TLS 1.3 فقط وتعطيل البروتوكولات القديمة وتفعيل mTLS' },
+        e7:  { technique: 'تنفيذ التعليمات البرمجية عن بُعد عبر ثغرة التطبيق (MITRE T1190)', policy: 'سياسة المعالجة السريعة للثغرات وإدارة التحديثات الأمنية', mechanism: 'التحديث الأمني العاجل وعزل الحاويات (Sandboxing) وجدار WAF وحسابات خدمة محدودة' },
+        e8:  { technique: 'تزوير طلبات الخادم (SSRF) للانتقال إلى خادم البريد الداخلي (OWASP A10)', policy: 'سياسة عزل منطقة DMZ والتحكم الصارم بحركة الخروج (Egress)', mechanism: 'قوائم السماح للعناوين (Allowlist) وتصفية الخروج ومصادقة الواجهات الداخلية' },
+        e9:  { technique: 'هجوم Kerberoasting لكسر تذاكر خدمات الدليل النشط (MITRE T1558.003)', policy: 'سياسة الهويات المميزة وتقوية كلمات مرور حسابات الخدمة', mechanism: 'حسابات gMSA وفرض تشفير AES-256 في Kerberos ومراقبة SIEM' },
+        e10: { technique: 'سرقة وإعادة استخدام ملفات تعريف جلسة البريد الإلكتروني (MITRE T1539)', policy: 'سياسة دورة حياة الجلسة الآمنة وحماية متصفح المستخدم', mechanism: 'تفعيل HttpOnly/Secure/SameSite وتقليص مدة الجلسة وربط الرمز بالجهاز' },
+        e11: { technique: 'الحركة الجانبية بتمرير التجزئة (Pass-the-Hash) عبر NTLM (MITRE T1550.002)', policy: 'سياسة نظافة بيانات الاعتماد والإدارة الطبقية للدليل النشط', mechanism: 'تفعيل Credential Guard وتعطيل NTLM ونظام LAPS وحظر الحركة الجانبية عبر EDR' },
+        e12: { technique: 'سرقة رموز الوصول OAuth وانتحال هوية المستخدم (MITRE T1528)', policy: 'سياسة هوية Zero-Trust وحوكمة الرموز قصيرة الأجل', mechanism: 'سياسات الوصول المشروط والمصادقة المقاومة للتصيد (FIDO2) وإلغاء الرموز تلقائياً' },
+        e13: { technique: 'الوصول إلى مجلدات النسخ الاحتياطي المشتركة المفتوحة SMB/NFS (MITRE T1039)', policy: 'سياسة تصنيف البيانات وأقل امتياز للتخزين', mechanism: 'التحكم بالوصول حسب الدور (RBAC) وتشفير SMB وعزل شبكة النسخ الاحتياطي' },
+        e14: { technique: 'تصعيد الامتيازات في قاعدة البيانات عبر حساب تطبيق مفرط الصلاحيات', policy: 'سياسة أقل امتياز لقواعد البيانات وفصل المهام', mechanism: 'تقييد أدوار قاعدة البيانات ومراقبة نشاط القاعدة (DAM) وتحصين الإجراءات المخزنة' },
+        e15: { technique: 'إعادة استخدام بيانات مسؤول النطاق ضد خادم النسخ الاحتياطي (MITRE T1078)', policy: 'سياسة النسخ الاحتياطي غير القابل للتغيير والإدارة المعزولة عن النطاق', mechanism: 'بيانات اعتماد مستقلة خارج النطاق ونسخ غير قابلة للتعديل وخزنة PAM' },
+        e16: { technique: 'السيطرة عبر صلاحيات مسؤول النطاق للاستحواذ الكامل على قاعدة البيانات', policy: 'سياسة حماية الأصول الحساسة بـ Zero-Trust والوصول المؤقت (JIT)', mechanism: 'إدارة الوصول المميز (PAM) وفرض MFA لمسؤولي القاعدة والتجزئة الدقيقة للشبكة' },
+        e17: { technique: 'استخراج مفاتيح تشفير قاعدة البيانات من نسخ الاحتياط (MITRE T1552)', policy: 'سياسة فصل مفاتيح التشفير وإدارة دورة حياتها', mechanism: 'عزل المفاتيح في HSM/KMS والتشفير المغلف وتسجيل كافة عمليات الوصول' }
       };
 
       const state = {
@@ -705,9 +987,9 @@
         finalResult: null,
         timerId: null,
         chartInstance: null,
-        dbStats: null,
         history: [],
-        lastEdgeClick: { id: null, time: 0 }
+        lastEdgeClick: { id: null, time: 0 },
+        dragState: null
       };
 
       const $ = id => document.getElementById(id);
@@ -735,7 +1017,17 @@
       function getNodeLabel(id) {
         const n = getNodeMap()[id];
         if (!n) return id;
-        return state.lang === 'ku' ? `${n.label} (${n.kuLabel})` : n.label;
+        if (state.lang === 'ku') return `${n.label} (${n.kuLabel})`;
+        if (state.lang === 'ar' && AR_NODES[n.id]) return `${n.label} (${AR_NODES[n.id].label})`;
+        return n.label;
+      }
+
+      function getEdgeLocalizedField(edge, field) {
+        if (state.lang === 'ar') {
+          if (AR_EDGES[edge.id] && AR_EDGES[edge.id][field]) return AR_EDGES[edge.id][field];
+          return edge[field]?.ar || edge[field]?.en || '';
+        }
+        return edge[field]?.[state.lang] || edge[field]?.en || '';
       }
 
       function getShortNodeLabel(id) {
@@ -802,25 +1094,31 @@
         }, 3200);
       }
 
-      function updateDbStatusBadge(stats, offline = false) {
-        const t = I18N[state.lang];
-        const dot = $('dbStatusDot');
-        const txt = $('dbStatusText');
-        if (offline) {
-          dot.className = 'w-2 h-2 rounded-full bg-rose-500';
-          txt.textContent = t.dbOffline;
-          return;
-        }
-        if (stats) {
-          state.dbStats = stats;
-          dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
-          txt.textContent = t.dbConnected(stats);
-        }
+      // =========================================================
+      // SVG Graph Rendering & Node Dragging
+      // =========================================================
+      function svgClientToCoords(ev) {
+        const svg = $('graphSvg');
+        const rect = svg.getBoundingClientRect();
+        const scaleX = 880 / (rect.width || 880);
+        const scaleY = 430 / (rect.height || 430);
+        return {
+          x: Math.round(Math.max(52, Math.min(828, (ev.clientX - rect.left) * scaleX))),
+          y: Math.round(Math.max(48, Math.min(372, (ev.clientY - rect.top) * scaleY)))
+        };
       }
 
-      // =========================================================
-      // SVG Graph Rendering
-      // =========================================================
+      function startNodeDrag(ev, node) {
+        if (ev.button !== undefined && ev.button !== 0) return;
+        ev.preventDefault();
+        const pt = svgClientToCoords(ev);
+        state.dragState = {
+          nodeId: node.id,
+          offsetX: node.x - pt.x,
+          offsetY: node.y - pt.y,
+          moved: false
+        };
+      }
       function computeEdgeGeometry(edge) {
         const nodeMap = getNodeMap();
         const a = nodeMap[edge.from];
@@ -950,6 +1248,7 @@
 
           const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
           g.setAttribute('class', 'node-group');
+          g.addEventListener('pointerdown', ev => startNodeDrag(ev, node));
 
           if (isCurrent) {
             const pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -1178,7 +1477,7 @@
             <div class="text-[11px] font-mono-code text-slate-400">
               ${escapeHtml(getNodeLabel(edge.from))} <span class="text-cyan-400">→</span> ${escapeHtml(getNodeLabel(edge.to))}
             </div>
-            <p class="text-slate-300 leading-relaxed pt-1 border-t border-slate-800/80">${escapeHtml(edge.technique[state.lang])}</p>
+            <p class="text-slate-300 leading-relaxed pt-1 border-t border-slate-800/80">${escapeHtml(getEdgeLocalizedField(edge, 'technique'))}</p>
           </div>
 
           <div class="rounded-xl bg-slate-900/90 border border-slate-800 p-3 space-y-1.5">
@@ -1205,14 +1504,14 @@
                 <i data-lucide="file-check-2" class="w-3.5 h-3.5"></i>
                 <span>${escapeHtml(t.advPolicyTitle)}</span>
               </div>
-              <p class="text-slate-200 leading-relaxed">${escapeHtml(edge.policy[state.lang])}</p>
+              <p class="text-slate-200 leading-relaxed">${escapeHtml(getEdgeLocalizedField(edge, 'policy'))}</p>
             </div>
             <div class="pt-2 border-t border-slate-800/80">
               <div class="text-[10px] uppercase tracking-wider text-emerald-300 font-semibold flex items-center gap-1.5 mb-1">
                 <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
                 <span>${escapeHtml(t.advMechTitle)}</span>
               </div>
-              <p class="text-slate-200 leading-relaxed">${escapeHtml(edge.mechanism[state.lang])}</p>
+              <p class="text-slate-200 leading-relaxed">${escapeHtml(getEdgeLocalizedField(edge, 'mechanism'))}</p>
             </div>
           </div>
 
@@ -1320,7 +1619,7 @@
 
         const pathEl = $('pathDisplay');
         if (isFinalStep && res.found) {
-          const arrow = state.lang === 'ku' ? '←' : '→';
+          const arrow = (state.lang === 'ku' || state.lang === 'ar') ? '←' : '→';
           const chain = res.path.map(id => `<span class="text-rose-300 font-semibold">${escapeHtml(nodeMap[id]?.label || id)}</span>`).join(` <span class="text-slate-500">${arrow}</span> `);
           pathEl.innerHTML = `${chain} <span class="mx-1 inline-block px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">${escapeHtml(t.pathSummaryPill(res.cost, res.hops))}</span>`;
         } else if (isFinalStep && !res.found) {
@@ -1372,15 +1671,11 @@
 
       async function refreshDbPanels() {
         try {
-          const [health, histData] = await Promise.all([
-            apiRequest('/api/health'),
-            apiRequest('/api/history?limit=25')
-          ]);
+          const histData = await apiRequest('/api/history?limit=25');
           state.history = histData.history || [];
-          updateDbStatusBadge(health.database);
           renderDbHub();
         } catch (err) {
-          updateDbStatusBadge(null, true);
+          // Silently ignore transient history refresh errors
         }
       }
 
@@ -1625,21 +1920,87 @@
         startSel.innerHTML = '';
         goalSel.innerHTML = '';
         state.nodes.forEach(n => {
-          const text = state.lang === 'ku'
-            ? `${n.label} — ${n.kuLabel} (${n.kuRole})`
-            : `${n.label} (${n.role})`;
+          let text = `${n.label} (${n.role})`;
+          if (state.lang === 'ku') {
+            text = `${n.label} — ${n.kuLabel} (${n.kuRole})`;
+          } else if (state.lang === 'ar') {
+            const ar = AR_NODES[n.id];
+            text = ar ? `${n.label} — ${ar.label} (${ar.role})` : `${n.label} (عقدة مخصصة)`;
+          }
           startSel.add(new Option(text, n.id));
           goalSel.add(new Option(text, n.id));
         });
         startSel.value = prevStart;
         goalSel.value = prevGoal;
+        populateModalNodeDropdowns();
       }
 
-      function applyLanguage(lang) {
+      function populateModalNodeDropdowns() {
+        const fromSel = $('selectConnectFrom');
+        const toSel = $('selectConnectTo');
+        if (!fromSel || !toSel) return;
+        const prevFrom = fromSel.value;
+        const prevTo = toSel.value;
+        const t = I18N[state.lang];
+        fromSel.innerHTML = '';
+        toSel.innerHTML = '';
+        fromSel.add(new Option(t.optNone, ''));
+        toSel.add(new Option(t.optNone, ''));
+        state.nodes.forEach(n => {
+          const label = `${n.label} (${n.tag})`;
+          fromSel.add(new Option(label, n.id));
+          toSel.add(new Option(label, n.id));
+        });
+        if ([...fromSel.options].some(o => o.value === prevFrom)) fromSel.value = prevFrom;
+        if ([...toSel.options].some(o => o.value === prevTo)) toSel.value = prevTo;
+      }
+
+      function openAddNodeModal() {
+        const t = I18N[state.lang];
+        populateModalNodeDropdowns();
+        $('inputNodeShort').placeholder = t.phNodeShort;
+        $('inputNodeLabel').placeholder = t.phNodeLabel;
+        $('addNodeModal').classList.remove('hidden');
+        $('inputNodeShort').focus();
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      function closeAddNodeModal() {
+        $('addNodeModal').classList.add('hidden');
+        $('addNodeForm').reset();
+        $('inputNodeH').value = '3';
+        $('inputEdgeCost').value = '3';
+      }
+
+      const LANG_STORAGE_KEY = 'cybershield_lang';
+
+      function openLangModal(allowClose = true) {
+        const modal = $('langModal');
+        const closeBtn = $('btnCloseLangModal');
+        closeBtn.classList.toggle('hidden', !allowClose);
+        modal.dataset.allowClose = allowClose ? '1' : '0';
+        modal.querySelectorAll('.lang-choice-btn').forEach(btn => {
+          const active = btn.dataset.chooseLang === state.lang;
+          btn.classList.toggle('border-cyan-400', active);
+          btn.classList.toggle('bg-cyan-500/15', active);
+        });
+        modal.classList.remove('hidden');
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      function closeLangModal() {
+        $('langModal').classList.add('hidden');
+      }
+
+      function applyLanguage(lang, persist = true, refreshData = true) {
+        if (!I18N[lang]) lang = 'en';
         state.lang = lang;
+        if (persist) {
+          try { localStorage.setItem(LANG_STORAGE_KEY, lang); } catch (_) {}
+        }
         const t = I18N[lang];
         document.documentElement.lang = lang;
-        document.documentElement.dir = lang === 'ku' ? 'rtl' : 'ltr';
+        document.documentElement.dir = (lang === 'ku' || lang === 'ar') ? 'rtl' : 'ltr';
         $('langToggleLabel').textContent = t.langBtn;
 
         document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -1650,12 +2011,15 @@
           }
         });
 
-        if (state.dbStats) updateDbStatusBadge(state.dbStats);
-        populateHostDropdowns();
-        renderGraph();
-        updateInspector();
-        renderDbHub();
-        updateBenchmarkAll();
+        $('inputNodeShort').placeholder = t.phNodeShort;
+        $('inputNodeLabel').placeholder = t.phNodeLabel;
+        if (refreshData && state.nodes.length) {
+          populateHostDropdowns();
+          renderGraph();
+          updateInspector();
+          renderDbHub();
+          updateBenchmarkAll();
+        }
       }
 
       function selectAlgorithm(algo, runBench = true) {
@@ -1677,12 +2041,92 @@
           state.edges = graph.edges;
           state.patchedEdges = new Set(graph.patchedEdges || []);
         } catch (err) {
-          updateDbStatusBadge(null, true);
           showToast(`${I18N[state.lang].dbOffline}: ${err.message}`);
           return;
         }
 
         populateHostDropdowns();
+
+        // SVG Node Dragging
+        const svgEl = $('graphSvg');
+        svgEl.addEventListener('pointermove', ev => {
+          if (!state.dragState) return;
+          const pt = svgClientToCoords(ev);
+          const node = getNodeMap()[state.dragState.nodeId];
+          if (!node) return;
+          const nx = Math.round(Math.max(52, Math.min(828, pt.x + state.dragState.offsetX)));
+          const ny = Math.round(Math.max(48, Math.min(372, pt.y + state.dragState.offsetY)));
+          if (nx !== node.x || ny !== node.y) {
+            node.x = nx;
+            node.y = ny;
+            state.dragState.moved = true;
+            renderGraph();
+          }
+        });
+        const finishDrag = async () => {
+          if (!state.dragState) return;
+          const { nodeId, moved } = state.dragState;
+          state.dragState = null;
+          if (!moved) return;
+          const node = getNodeMap()[nodeId];
+          if (!node) return;
+          try {
+            await apiRequest(`/api/nodes/${encodeURIComponent(node.id)}/position`, {
+              method: 'PATCH',
+              body: JSON.stringify({ x: node.x, y: node.y })
+            });
+          } catch (err) {
+            showToast(err.message);
+          }
+        };
+        window.addEventListener('pointerup', finishDrag);
+        window.addEventListener('pointercancel', finishDrag);
+
+        // Add Node Modal events
+        $('btnAddNode').addEventListener('click', openAddNodeModal);
+        $('btnCloseAddNode').addEventListener('click', closeAddNodeModal);
+        $('btnCancelAddNode').addEventListener('click', closeAddNodeModal);
+        $('addNodeModal').addEventListener('click', ev => {
+          if (ev.target === $('addNodeModal')) closeAddNodeModal();
+        });
+        window.addEventListener('keydown', ev => {
+          if (ev.key === 'Escape' && !$('addNodeModal').classList.contains('hidden')) {
+            closeAddNodeModal();
+          }
+        });
+        $('addNodeForm').addEventListener('submit', async ev => {
+          ev.preventDefault();
+          const shortName = $('inputNodeShort').value.trim();
+          const label = $('inputNodeLabel').value.trim();
+          const h = Number($('inputNodeH').value);
+          const connectFrom = $('selectConnectFrom').value;
+          const connectTo = $('selectConnectTo').value;
+          const cost = Number($('inputEdgeCost').value) || 3;
+          if (!shortName || !label) return;
+
+          try {
+            const data = await apiRequest('/api/nodes', {
+              method: 'POST',
+              body: JSON.stringify({ shortName, label, h, connectFrom, connectTo, cost })
+            });
+            state.nodes = data.graph.nodes;
+            state.edges = data.graph.edges;
+            state.patchedEdges = new Set(data.graph.patchedEdges || []);
+            populateHostDropdowns();
+            closeAddNodeModal();
+            showToast(I18N[state.lang].toastNodeAdded(data.node.label, data.node.h));
+
+            await Promise.all([
+              updateBenchmarkAll(),
+              prepareSearch(false, false)
+            ]);
+            if (state.steps.length > 0) state.currentStepIdx = state.steps.length - 1;
+            renderGraph();
+            updateInspector();
+          } catch (err) {
+            showToast(err.message);
+          }
+        });
 
         $('selectStart').addEventListener('change', e => {
           state.startId = e.target.value;
@@ -1726,7 +2170,24 @@
         });
 
         $('btnLangToggle').addEventListener('click', () => {
-          applyLanguage(state.lang === 'en' ? 'ku' : 'en');
+          openLangModal(true);
+        });
+        $('btnCloseLangModal').addEventListener('click', closeLangModal);
+        $('langModal').addEventListener('click', ev => {
+          if (ev.target === $('langModal') && $('langModal').dataset.allowClose === '1') {
+            closeLangModal();
+          }
+        });
+        document.querySelectorAll('.lang-choice-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            applyLanguage(btn.dataset.chooseLang, true, true);
+            closeLangModal();
+          });
+        });
+        window.addEventListener('keydown', ev => {
+          if (ev.key === 'Escape' && !$('langModal').classList.contains('hidden') && $('langModal').dataset.allowClose === '1') {
+            closeLangModal();
+          }
         });
         $('btnCompareAll').addEventListener('click', async () => {
           await updateBenchmarkAll();
@@ -1776,9 +2237,19 @@
 
         if (window.lucide) window.lucide.createIcons();
 
+        let savedLang = null;
+        try { savedLang = localStorage.getItem(LANG_STORAGE_KEY); } catch (_) {}
+        if (savedLang && I18N[savedLang]) {
+          applyLanguage(savedLang, false, false);
+        } else {
+          applyLanguage('en', false, false);
+          openLangModal(false);
+        }
+
         selectAlgorithm('ASTAR', false);
         setClickMode('inspect');
         switchTab('trace');
+        populateHostDropdowns();
 
         await Promise.all([
           prepareSearch(false),
