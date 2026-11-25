@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CyberShield AI — Attack-Path Discovery &amp; InfoSec Analyzer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230891b2'/%3E%3Cpath d='M32 10l18 7v12c0 12-7 21-18 25-11-4-18-13-18-25V17l18-7z' fill='none' stroke='%23071826' stroke-width='5' stroke-linejoin='round'/%3E%3Cpath d='M23 32l6 6 13-14' fill='none' stroke='%23071826' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;
+      background-color: #070d19;
+      color: #e2e8f0;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.86);
+      border: 1px solid rgba(51, 65, 85, 0.72);
+      backdrop-filter: blur(8px);
+    }
+    .edge-hit {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    .edge-hit:hover .edge-line {
+      stroke-width: 3.6;
+      filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.85));
+    }
+    .edge-selected .edge-line {
+      filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.95));
+    }
+    .node-group {
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    @keyframes pulseRing {
+      0% { stroke-opacity: 0.9; stroke-width: 2; }
+      50% { stroke-opacity: 0.35; stroke-width: 6; }
+      100% { stroke-opacity: 0.9; stroke-width: 2; }
+    }
+    .node-active-ring {
+      animation: pulseRing 1.1s infinite ease-in-out;
+    }
+    @keyframes dashFlow {
+      to { stroke-dashoffset: -24; }
+    }
+    .attack-path-flow {
+      stroke-dasharray: 8 4;
+      animation: dashFlow 0.85s linear infinite;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+  <!-- Top Navbar -->
+  <header class="sticky top-0 z-30 border-b border-slate-800/90 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white leading-tight">
+              CyberShield AI <span data-i18n="appSubtitleTitle" class="text-cyan-400 font-semibold">— Attack-Path Discovery Analyzer</span>
+            </h1>
+            <span data-i18n="editionBadge" class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">InfoSec Edition</span>
+            <span id="dbStatusBadge" class="inline-flex items-center gap-1.5 text-[10px] font-mono-code px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+              <span id="dbStatusDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+              <span id="dbStatusText" data-i18n="dbConnecting">Connecting DB...</span>
+            </span>
+          </div>
+          <p data-i18n="appSubtitle" class="text-xs text-slate-400">
+            Full-Stack Flask + SQLite · CVSS v3.1, CIA Triad &amp; Defense-in-Depth Mitigation Advisor
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btnLangToggle" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 font-semibold text-xs sm:text-sm transition" title="Switch English / Kurdish Sorani">
+          <i data-lucide="languages" class="w-4 h-4"></i>
+          <span id="langToggleLabel">کوردی</span>
+        </button>
+        <button id="btnCompareAll" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs sm:text-sm transition shadow-md shadow-cyan-500/20">
+          <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+          <span data-i18n="btnCompareAll">Compare All 6</span>
+        </button>
+        <button id="btnRestoreEdges" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs sm:text-sm transition" title="Restore all patched vulnerabilities">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          <span data-i18n="btnRestore" class="hidden sm:inline">Restore Network</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-5 space-y-5">
+    <!-- Control Strip -->
+    <section class="glass-card rounded-2xl p-4 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-1.5" id="algoButtons" role="group" aria-label="Select Search Algorithm">
+          <button data-algo="BFS" class="algo-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition border">BFS</button>
+          <button data-algo="DFS" class="algo-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition border">DFS</button>
+          <button data-algo="DLS" class="algo-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition border">DLS</button>
+          <button data-algo="IDDFS" class="algo-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition border">IDDFS</button>
+          <button data-algo="GREEDY" class="algo-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition border">Greedy</button>
+          <button data-algo="ASTAR" class="algo-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition border">A* Search</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btnRun" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs sm:text-sm transition shadow-md shadow-emerald-500/20">
+            <i data-lucide="play" class="w-4 h-4"></i>
+            <span data-i18n="btnRun">Run Search</span>
+          </button>
+          <button id="btnStep" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs sm:text-sm transition">
+            <i data-lucide="step-forward" class="w-4 h-4"></i>
+            <span data-i18n="btnStep">Step</span>
+          </button>
+          <button id="btnReset" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-medium text-xs sm:text-sm transition">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <span data-i18n="btnReset">Reset</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Parameters Row -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-slate-800/80">
+        <div>
+          <label for="selectStart" class="block text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1"><span data-i18n="lblStart">Entry Point (Start)</span></label>
+          <select id="selectStart" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500"></select>
+        </div>
+        <div>
+          <label for="selectGoal" class="block text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1"><span data-i18n="lblGoal">Target Asset (Goal)</span></label>
+          <select id="selectGoal" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500"></select>
+        </div>
+        <div id="dlsControlWrap">
+          <div class="flex items-center justify-between mb-1">
+            <label for="sliderDls" class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold"><span data-i18n="lblDls">DLS Depth Limit (l)</span></label>
+            <span id="dlsValueLabel" class="font-mono-code text-xs text-amber-400 font-semibold">l = 2</span>
+          </div>
+          <input id="sliderDls" type="range" min="1" max="6" value="2" class="w-full accent-amber-400 cursor-pointer" />
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="sliderSpeed" class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold"><span data-i18n="lblSpeed">Animation Speed</span></label>
+            <span id="speedValueLabel" class="font-mono-code text-xs text-cyan-400 font-semibold">650 ms</span>
+          </div>
+          <input id="sliderSpeed" type="range" min="150" max="1400" step="50" value="650" class="w-full accent-cyan-400 cursor-pointer" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Workspace: Graph Canvas + Live Inspector / Defense Advisor -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Attack Graph Canvas -->
+      <section class="lg:col-span-8 glass-card rounded-2xl p-4 flex flex-col">
+        <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i data-lucide="network" class="w-4 h-4 text-cyan-400"></i>
+              <span data-i18n="graphTitle">Enterprise Network Attack Graph</span>
+            </h2>
+            <p data-i18n="graphHint" class="text-xs text-slate-400 mt-0.5">
+              Click any vulnerability edge to <span class="text-indigo-300 font-medium">Inspect &amp; Mitigate</span> (or <span class="text-emerald-400 font-medium">Double-Click / Quick Patch</span> to block &amp; save to DB).
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Click Mode Switcher -->
+            <div class="inline-flex rounded-lg bg-slate-900 border border-slate-700 p-0.5 text-[11px]" role="group" aria-label="Edge Click Mode">
+              <button id="modeInspect" class="px-2 py-1 rounded-md font-semibold transition bg-indigo-500/25 text-indigo-200 border border-indigo-400/40" data-i18n="modeInspect">Inspect</button>
+              <button id="modePatch" class="px-2 py-1 rounded-md font-semibold transition text-slate-400 hover:text-slate-200 border border-transparent" data-i18n="modeQuickPatch">Quick Patch</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5 text-[11px] text-slate-300">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span><span data-i18n="legVisited">Visited</span></span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span data-i18n="legFrontier">Frontier</span></span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span><span data-i18n="legPath">Attack Path</span></span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span data-i18n="legPatched">Patched</span></span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2.5 text-[10px]">
+            <span class="text-slate-400 font-semibold" data-i18n="cvssLegendLbl">CVSS v3.1:</span>
+            <span class="inline-flex items-center gap-1 text-rose-300"><span class="w-2 h-2 rounded-full bg-rose-500"></span><span data-i18n="sevCritical">Critical</span> (9.0+)</span>
+            <span class="inline-flex items-center gap-1 text-orange-300"><span class="w-2 h-2 rounded-full bg-orange-500"></span><span data-i18n="sevHigh">High</span> (7.0–8.9)</span>
+            <span class="inline-flex items-center gap-1 text-amber-300"><span class="w-2 h-2 rounded-full bg-amber-400"></span><span data-i18n="sevMedium">Medium</span> (4.0–6.9)</span>
+          </div>
+        </div>
+
+        <div class="relative flex-1 rounded-xl bg-slate-950/90 border border-slate-800 overflow-hidden min-h-[370px]">
+          <svg id="graphSvg" dir="ltr" viewBox="0 0 880 430" class="w-full h-full select-none" aria-label="Enterprise Network Attack Graph">
+            <defs>
+              <pattern id="gridDots" width="24" height="24" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r="1" fill="#1e293b" />
+              </pattern>
+              <marker id="arrowDefault" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569" />
+              </marker>
+              <marker id="arrowVisited" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#22d3ee" />
+              </marker>
+              <marker id="arrowPath" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#f43f5e" />
+              </marker>
+              <marker id="arrowPatched" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
+              </marker>
+              <marker id="arrowSelected" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#818cf8" />
+              </marker>
+            </defs>
+            <rect width="880" height="430" fill="url(#gridDots)" />
+            <g id="edgesLayer"></g>
+            <g id="nodesLayer"></g>
+          </svg>
+          <!-- Toast Notification -->
+          <div id="graphToast" class="pointer-events-none opacity-0 transition-opacity duration-300 absolute bottom-3 left-3 right-3 sm:right-auto bg-slate-900/95 border border-cyan-500/40 text-xs text-cyan-200 px-3 py-2 rounded-lg shadow-xl"></div>
+        </div>
+
+        <!-- KPI Summary Bar -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mt-3">
+          <div class="rounded-xl bg-slate-900/90 border border-slate-800 px-3 py-2">
+            <div data-i18n="kpiAlgoLbl" class="text-[11px] text-slate-400">Algorithm</div>
+            <div id="kpiAlgo" class="font-semibold text-sm text-cyan-300 mt-0.5">A* Search</div>
+          </div>
+          <div class="rounded-xl bg-slate-900/90 border border-slate-800 px-3 py-2">
+            <div data-i18n="kpiCostLbl" class="text-[11px] text-slate-400">Attack Cost g(n)</div>
+            <div id="kpiCost" class="font-mono-code font-semibold text-sm text-rose-400 mt-0.5">—</div>
+          </div>
+          <div class="rounded-xl bg-slate-900/90 border border-slate-800 px-3 py-2">
+            <div data-i18n="kpiRiskLbl" class="text-[11px] text-slate-400">Risk Exposure</div>
+            <div id="kpiRisk" class="font-mono-code font-semibold text-sm text-rose-400 mt-0.5">—</div>
+          </div>
+          <div class="rounded-xl bg-slate-900/90 border border-slate-800 px-3 py-2">
+            <div data-i18n="kpiExpLbl" class="text-[11px] text-slate-400">Nodes Expanded</div>
+            <div id="kpiExpanded" class="font-mono-code font-semibold text-sm text-white mt-0.5">0</div>
+          </div>
+          <div class="rounded-xl bg-slate-900/90 border border-slate-800 px-3 py-2 col-span-2 sm:col-span-1">
+            <div data-i18n="kpiSpaceLbl" class="text-[11px] text-slate-400">Max Frontier (Space)</div>
+            <div id="kpiFrontier" class="font-mono-code font-semibold text-sm text-amber-300 mt-0.5">0</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Inspector: Live Trace, Defense Advisor & AI Formulation -->
+      <aside class="lg:col-span-4 glass-card rounded-2xl p-4 flex flex-col lg:max-h-[660px]">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5 mb-3">
+          <div class="flex flex-wrap gap-1" role="tablist">
+            <button id="tabTrace" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" data-i18n="tabTrace">Live Trace</button>
+            <button id="tabAdvisor" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent inline-flex items-center gap-1">
+              <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+              <span data-i18n="tabAdvisor">Defense Advisor</span>
+            </button>
+            <button id="tabFormulation" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent" data-i18n="tabFormulation">AI Formulation</button>
+          </div>
+          <span id="patchedBadge" class="font-mono-code text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">0 Patched</span>
+        </div>
+
+        <!-- Tab 1: Live Trace + Path Risk & Combined CIA Triad Summary -->
+        <div id="panelTrace" class="flex-1 flex flex-col min-h-0 space-y-2.5 overflow-y-auto pr-0.5">
+          <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold" data-i18n="lblDiscoveredPath">Discovered Attack Path</span>
+              <span id="pathRiskBadge" class="font-mono-code text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">—</span>
+            </div>
+            <div id="pathDisplay" class="font-mono-code text-xs text-slate-200 leading-relaxed break-words">Press <span class="text-emerald-400 font-semibold">Run Search</span> to discover an attack path.</div>
+            <div id="pathEdgesQuickBar" class="flex flex-wrap gap-1.5 mt-2"></div>
+          </div>
+
+          <!-- Combined CIA Triad Risk Impact Summary of Active Attack Path -->
+          <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1.5">
+                <i data-lucide="lock" class="w-3.5 h-3.5 text-cyan-400"></i>
+                <span data-i18n="ciaPathTitle">Active Path CIA Triad Impact</span>
+              </span>
+              <span id="ciaSummaryMeta" class="font-mono-code text-[10px] text-slate-400">—</span>
+            </div>
+            <div id="ciaTriadSummary" class="space-y-1.5 text-xs"></div>
+          </div>
+
+          <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5" data-i18n="lblFrontier">Current Frontier Queue / Stack</div>
+            <div id="frontierDisplay" class="flex flex-wrap gap-1.5 min-h-[24px] text-xs font-mono-code text-slate-400">Empty</div>
+          </div>
+
+          <div class="flex-1 flex flex-col min-h-[120px]">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold" data-i18n="lblExecLog">Step-by-Step Execution Log</span>
+              <span id="stepCounter" class="font-mono-code text-[11px] text-slate-400">Step 0 / 0</span>
+            </div>
+            <div id="traceLog" class="flex-1 overflow-y-auto space-y-1.5 pr-1 text-xs font-mono-code max-h-[165px]"></div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Vulnerability Inspector / Defense Advisor -->
+        <div id="panelAdvisor" class="hidden flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
+          <div class="rounded-xl bg-slate-900/90 border border-slate-800 p-3 space-y-2">
+            <label for="selectEdgeAdvisor" class="block text-[11px] uppercase tracking-wider text-slate-400 font-semibold" data-i18n="advSelectEdge">Select Vulnerability Edge to Inspect</label>
+            <select id="selectEdgeAdvisor" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-400"></select>
+          </div>
+          <div id="advisorContent" class="space-y-2.5"></div>
+        </div>
+
+        <!-- Tab 3: Formal Problem Formulation -->
+        <div id="panelFormulation" class="hidden flex-1 overflow-y-auto space-y-2.5 text-xs text-slate-300 pr-1">
+          <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div data-i18n="formStateTitle" class="font-semibold text-cyan-300 mb-0.5">State Space</div>
+            <p data-i18n="formStateDesc" class="text-slate-400">10 interconnected enterprise hosts stored in SQLite from external Internet to Core Database.</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div data-i18n="formActionTitle" class="font-semibold text-cyan-300 mb-0.5">Actions &amp; Transition Model</div>
+            <p data-i18n="formActionDesc" class="text-slate-400">Exploiting an unpatched vulnerability edge (e.g., Phishing, SQLi, Pass-the-Hash) transitions the attacker to the adjacent host.</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div data-i18n="formCostTitle" class="font-semibold text-cyan-300 mb-0.5">Path Cost g(n)</div>
+            <p data-i18n="formCostDesc" class="text-slate-400">Exploit difficulty score per hop (1–6). Lower cost = easier, higher-risk attack vector.</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div data-i18n="formHeurTitle" class="font-semibold text-cyan-300 mb-0.5">Heuristic Function h(n)</div>
+            <p data-i18n="formHeurDesc" class="text-slate-400">Admissible estimated minimum exploit effort remaining to reach the Core Database (h(Goal) = 0).</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div data-i18n="formRiskTitle" class="font-semibold text-indigo-300 mb-0.5">CVSS v3.1 &amp; CIA Triad Risk Scoring</div>
+            <p data-i18n="formRiskDesc" class="text-slate-400">Every vulnerability edge carries a CVSS v3.1 base score (5.3–9.8) and Confidentiality, Integrity, and Availability (CIA) impact ratings. Overall Path Risk Exposure blends Peak CVSS (60%) and Mean CVSS (40%).</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+            <div data-i18n="formClosedTitle" class="font-semibold text-emerald-400 mb-0.5">Closed-Loop Defense-in-Depth &amp; DB Persistence</div>
+            <p data-i18n="formClosedDesc" class="text-slate-400">Every mitigation patch, search run, and defense scenario is persisted in SQLite through the Flask REST API, enabling audit trails and repeatable Closed-Loop testing.</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Bottom Section 1: All 6 Algorithms Benchmark Table + Chart -->
+    <section class="glass-card rounded-2xl p-4 sm:p-5 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+            <span data-i18n="benchTitle">Algorithm Performance Benchmark (Uninformed vs. Informed Search)</span>
+          </h2>
+          <p data-i18n="benchSub" class="text-xs text-slate-400">Evaluates Completeness, Cost Optimality, Path Risk Exposure (CVSS), Time (Expanded Nodes), and Space (Max Frontier Size).</p>
+        </div>
+        <span id="benchmarkBadge" class="text-xs font-mono-code text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-1 rounded-lg" data-i18n="benchBadge">Live Comparison</span>
+      </div>
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+        <div class="xl:col-span-7 overflow-x-auto rounded-xl border border-slate-800">
+          <table class="w-full text-start border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-900/95 text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-800">
+                <th data-i18n="thAlgo" class="py-2.5 px-3 text-start">Algorithm</th>
+                <th data-i18n="thType" class="py-2.5 px-3 text-start">Type</th>
+                <th data-i18n="thStatus" class="py-2.5 px-3 text-start">Status</th>
+                <th data-i18n="thHops" class="py-2.5 px-2.5 text-end">Hops</th>
+                <th data-i18n="thCost" class="py-2.5 px-2.5 text-end">Cost g(n)</th>
+                <th data-i18n="thRisk" class="py-2.5 px-2.5 text-end">Risk (CVSS)</th>
+                <th data-i18n="thExpanded" class="py-2.5 px-2.5 text-end">Expanded</th>
+                <th data-i18n="thSpace" class="py-2.5 px-2.5 text-end">Max Space</th>
+              </tr>
+            </thead>
+            <tbody id="benchmarkTableBody" class="divide-y divide-slate-800/70 bg-slate-950/60"></tbody>
+          </table>
+        </div>
+        <div class="xl:col-span-5 rounded-xl bg-slate-950/70 border border-slate-800 p-3">
+          <div class="relative h-64">
+            <canvas id="benchmarkChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom Section 2: SQLite Database Hub (Scenarios, Mitigation Audit Logs, Search History) -->
+    <section class="glass-card rounded-2xl p-4 sm:p-5 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
+            <i data-lucide="database" class="w-4 h-4 text-indigo-400"></i>
+            <span data-i18n="dbHubTitle">Security Operations Database (SQLite Persistence)</span>
+          </h2>
+          <p data-i18n="dbHubSub" class="text-xs text-slate-400">Persist defense scenarios, inspect timestamped mitigation audit logs, and track historical attack-path runs.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5" role="tablist">
+          <button id="dbTabScenarios" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/20 text-indigo-200 border border-indigo-400/40" data-i18n="dbTabScenarios">Saved Scenarios</button>
+          <button id="dbTabLogs" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent" data-i18n="dbTabLogs">Mitigation Audit Log</button>
+          <button id="dbTabHistory" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent" data-i18n="dbTabHistory">Search History</button>
+        </div>
+      </div>
+
+      <!-- DB Tab 1: Saved Scenarios -->
+      <div id="dbPanelScenarios" class="space-y-3">
+        <form id="scenarioForm" class="grid grid-cols-1 md:grid-cols-12 gap-2.5 bg-slate-900/80 border border-slate-800 rounded-xl p-3">
+          <div class="md:col-span-4">
+            <input id="inputScenarioName" type="text" maxlength="80" required placeholder="Scenario name (e.g., DMZ Hardening)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-400" />
+          </div>
+          <div class="md:col-span-5">
+            <input id="inputScenarioDesc" type="text" maxlength="240" placeholder="Optional defense notes..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-400" />
+          </div>
+          <div class="md:col-span-3">
+            <button type="submit" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold text-xs transition">
+              <i data-lucide="save" class="w-3.5 h-3.5"></i>
+              <span data-i18n="btnSaveScenario">Save Current State</span>
+            </button>
+          </div>
+        </form>
+        <div id="scenariosList" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+      </div>
+
+      <!-- DB Tab 2: Mitigation Audit Logs -->
+      <div id="dbPanelLogs" class="hidden overflow-x-auto rounded-xl border border-slate-800">
+        <table class="w-full text-start border-collapse text-xs">
+          <thead>
+            <tr class="bg-slate-900/95 text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-800">
+              <th data-i18n="thLogTime" class="py-2 px-3 text-start">Timestamp (UTC)</th>
+              <th data-i18n="thLogAction" class="py-2 px-3 text-start">Action</th>
+              <th data-i18n="thLogTarget" class="py-2 px-3 text-start">Vulnerability / Target</th>
+              <th data-i18n="thLogRiskDelta" class="py-2 px-3 text-start">Risk Before → After</th>
+              <th data-i18n="thLogNote" class="py-2 px-3 text-start">Details</th>
+            </tr>
+          </thead>
+          <tbody id="logsTableBody" class="divide-y divide-slate-800/70 bg-slate-950/60"></tbody>
+        </table>
+      </div>
+
+      <!-- DB Tab 3: Search Run History -->
+      <div id="dbPanelHistory" class="hidden space-y-2.5">
+        <div class="flex justify-end">
+          <button id="btnClearHistory" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-xs transition">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span data-i18n="btnClearHistory">Clear History</span>
+          </button>
+        </div>
+        <div class="overflow-x-auto rounded-xl border border-slate-800">
+          <table class="w-full text-start border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-900/95 text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-800">
+                <th data-i18n="thLogTime" class="py-2 px-3 text-start">Timestamp (UTC)</th>
+                <th data-i18n="thAlgo" class="py-2 px-3 text-start">Algorithm</th>
+                <th data-i18n="thHistRoute" class="py-2 px-3 text-start">Start → Goal</th>
+                <th data-i18n="thCost" class="py-2 px-2.5 text-end">Cost g(n)</th>
+                <th data-i18n="thRisk" class="py-2 px-2.5 text-end">Risk (CVSS)</th>
+                <th data-i18n="thHistCia" class="py-2 px-3 text-start">CIA (C/I/A)</th>
+                <th data-i18n="thExpanded" class="py-2 px-2.5 text-end">Expanded</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody" class="divide-y divide-slate-800/70 bg-slate-950/60"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const ALGO_META = {
+        BFS:    { name: 'BFS',               type: 'Uninformed' },
+        DFS:    { name: 'DFS',               type: 'Uninformed' },
+        DLS:    { name: 'DLS',               type: 'Uninformed' },
+        IDDFS:  { name: 'IDDFS',             type: 'Uninformed' },
+        GREEDY: { name: 'Greedy Best-First', type: 'Informed' },
+        ASTAR:  { name: 'A* Search',         type: 'Informed' }
+      };
+
+      const I18N = {
+        en: {
+          langBtn: 'کوردی',
+          editionBadge: 'InfoSec Edition',
+          dbConnecting: 'Connecting DB...',
+          dbConnected: s => `SQLite DB · ${s.edges} Edges · ${s.scenarios} Scenarios`,
+          dbOffline: 'Backend Offline (Run app.py)',
+          appSubtitleTitle: '— Attack-Path Discovery Analyzer',
+          appSubtitle: 'Full-Stack Flask + SQLite · CVSS v3.1, CIA Triad & Defense-in-Depth Mitigation Advisor',
+          btnCompareAll: 'Compare All 6',
+          btnRestore: 'Restore Network',
+          btnRun: 'Run Search',
+          btnStep: 'Step',
+          btnReset: 'Reset',
+          lblStart: 'Entry Point (Start)',
+          lblGoal: 'Target Asset (Goal)',
+          lblDls: 'DLS Depth Limit (l)',
+          lblSpeed: 'Animation Speed',
+          graphTitle: 'Enterprise Network Attack Graph',
+          graphHint: 'Click any vulnerability edge to <span class="text-indigo-300 font-medium">Inspect &amp; Mitigate</span> (or <span class="text-emerald-400 font-medium">Double-Click / Quick Patch</span> to block &amp; save to DB).',
+          modeInspect: 'Inspect',
+          modeQuickPatch: 'Quick Patch',
+          legVisited: 'Visited',
+          legFrontier: 'Frontier',
+          legPath: 'Attack Path',
+          legPatched: 'Patched',
+          cvssLegendLbl: 'CVSS v3.1:',
+          sevCritical: 'Critical',
+          sevHigh: 'High',
+          sevMedium: 'Medium',
+          sevLow: 'Low',
+          sevSecured: 'Secured',
+          kpiAlgoLbl: 'Algorithm',
+          kpiCostLbl: 'Attack Cost g(n)',
+          kpiRiskLbl: 'Risk Exposure',
+          kpiExpLbl: 'Nodes Expanded',
+          kpiSpaceLbl: 'Max Frontier (Space)',
+          tabTrace: 'Live Trace',
+          tabAdvisor: 'Defense Advisor',
+          tabFormulation: 'AI Formulation',
+          lblDiscoveredPath: 'Discovered Attack Path',
+          lblFrontier: 'Current Frontier Queue / Stack',
+          lblExecLog: 'Step-by-Step Execution Log',
+          ciaPathTitle: 'Active Path CIA Triad Impact',
+          ciaC: 'Confidentiality',
+          ciaI: 'Integrity',
+          ciaA: 'Availability',
+          ciaNoPath: 'No active attack path — all CIA pillars are currently protected.',
+          ciaPending: 'Run a search to evaluate combined Confidentiality, Integrity & Availability risk.',
+          ciaHopsMeta: (hops, peak) => `${hops} hops · Peak CVSS ${peak.toFixed(1)}`,
+          ciaSecuredMeta: '0.0 / 10 · Protected',
+          advSelectEdge: 'Select Vulnerability Edge to Inspect',
+          advVulnTech: 'Vulnerability & Attack Technique',
+          advCvssTitle: 'CVSS v3.1 Severity Score',
+          advCiaTitle: 'CIA Triad Impact Analysis',
+          advPolicyTitle: 'Recommended Security Policy',
+          advMechTitle: 'Recommended Security Mechanism / Mitigation',
+          advBtnPatch: 'Simulate Mitigation (Patch & Save to DB)',
+          advBtnUnpatch: 'Restore Vulnerability (Unpatch in DB)',
+          advStatusActive: 'Active Exposure',
+          advStatusPatched: 'Mitigated / Patched',
+          advOnActivePath: 'On Active Attack Path',
+          advHopCost: c => `Exploit Cost g=${c}`,
+          advDefenseNote: 'Persisted in SQLite. Patching triggers Closed-Loop replanning and records an audit log entry.',
+          advReplanProtected: 'Defense-in-Depth Achieved: No remaining attack path reaches the target asset!',
+          advReplanAlt: (cost, risk) => `Closed-Loop Replanned: Next exposed path has cost g=${cost} and Risk Exposure ${risk}/10.`,
+          benchTitle: 'Algorithm Performance Benchmark (Uninformed vs. Informed Search)',
+          benchSub: 'Evaluates Completeness, Cost Optimality, Path Risk Exposure (CVSS), Time (Expanded Nodes), and Space (Max Frontier Size).',
+          benchBadge: 'Live Comparison',
+          thAlgo: 'Algorithm',
+          thType: 'Type',
+          thStatus: 'Status',
+          thHops: 'Hops',
+          thCost: 'Cost g(n)',
+          thRisk: 'Risk (CVSS)',
+          thExpanded: 'Expanded',
+          thSpace: 'Max Space',
+          dbHubTitle: 'Security Operations Database (SQLite Persistence)',
+          dbHubSub: 'Persist defense scenarios, inspect timestamped mitigation audit logs, and track historical attack-path runs.',
+          dbTabScenarios: 'Saved Scenarios',
+          dbTabLogs: 'Mitigation Audit Log',
+          dbTabHistory: 'Search History',
+          btnSaveScenario: 'Save Current State',
+          btnLoadScenario: 'Load Scenario',
+          btnDelete: 'Delete',
+          btnClearHistory: 'Clear History',
+          thLogTime: 'Timestamp (UTC)',
+          thLogAction: 'Action',
+          thLogTarget: 'Vulnerability / Target',
+          thLogRiskDelta: 'Risk Before → After',
+          thLogNote: 'Details',
+          thHistRoute: 'Start → Goal',
+          thHistCia: 'CIA (C/I/A)',
+          scenNamePlaceholder: 'Scenario name (e.g., DMZ Hardening)',
+          scenDescPlaceholder: 'Optional defense notes...',
+          scenPatchedLabel: n => `${n} patched`,
+          emptyLogs: 'No mitigation audit logs yet. Patch an edge or load a scenario to record an entry.',
+          emptyHistory: 'No search history recorded yet.',
+          emptyScenarios: 'No saved defense scenarios yet.',
+          formStateTitle: 'State Space',
+          formStateDesc: '10 interconnected enterprise hosts stored in SQLite from external Internet to Core Database.',
+          formActionTitle: 'Actions & Transition Model',
+          formActionDesc: 'Exploiting an unpatched vulnerability edge (e.g., Phishing, SQLi, Pass-the-Hash) transitions the attacker to the adjacent host.',
+          formCostTitle: 'Path Cost g(n)',
+          formCostDesc: 'Exploit difficulty score per hop (1–6). Lower cost = easier, higher-risk attack vector.',
+          formHeurTitle: 'Heuristic Function h(n)',
+          formHeurDesc: 'Admissible estimated minimum exploit effort remaining to reach the Core Database (h(Goal) = 0).',
+          formRiskTitle: 'CVSS v3.1 & CIA Triad Risk Scoring',
+          formRiskDesc: 'Every vulnerability edge carries a CVSS v3.1 base score (5.3–9.8) and Confidentiality, Integrity, and Availability (CIA) impact ratings. Overall Path Risk Exposure blends Peak CVSS (60%) and Mean CVSS (40%).',
+          formClosedTitle: 'Closed-Loop Defense-in-Depth & DB Persistence',
+          formClosedDesc: 'Every mitigation patch, search run, and defense scenario is persisted in SQLite through the Flask REST API, enabling audit trails and repeatable Closed-Loop testing.',
+          chartCost: 'Attack Path Cost g(n)',
+          chartExpanded: 'Nodes Expanded (Time)',
+          emptyFrontier: 'Empty',
+          pressRun: 'Press <span class="text-emerald-400 font-semibold">Run Search</span> to discover an attack path.',
+          patchedCount: n => `${n} Patched`,
+          stepOf: (a, b) => `Step ${a} / ${b}`,
+          uninformed: 'Uninformed',
+          informed: 'Informed',
+          optimal: 'Optimal',
+          found: 'Found',
+          noPath: 'No Path',
+          cutoff: l => `Cutoff (l=${l})`,
+          foundAtL: l => `Found (l=${l})`,
+          exploring: node => `<span class="text-cyan-300">Exploring...</span> Currently inspecting <span class="text-white font-semibold">${node}</span>`,
+          noPathReached: (status, goal) => `<span class="text-amber-400 font-semibold">${status}:</span> No attack path reached <span class="text-emerald-300 font-semibold">${goal}</span>.`,
+          pathSummaryPill: (cost, hops) => `Cost g=${cost} (${hops} hops)`,
+          riskScoreFmt: (score, sev) => `${score.toFixed(1)} / 10 (${sev})`,
+          toastCompare: 'Benchmarked all 6 algorithms via Flask API. Click any table row to animate!',
+          toastRestore: 'All 17 vulnerabilities restored in SQLite database.',
+          toastPatched: (vuln, from, to) => `Mitigated & Saved to DB: ${vuln} (${from} → ${to}) — Closed-Loop replanned!`,
+          toastReopened: (vuln, from, to) => `Re-opened in DB: ${vuln} (${from} → ${to})`,
+          toastInspect: (vuln, cvss, sev) => `Inspecting ${vuln} — CVSS ${cvss.toFixed(1)} (${sev})`,
+          toastModeInspect: 'Click Mode: Inspect vulnerability details in Defense Advisor (Double-click edge for quick patch).',
+          toastModePatch: 'Click Mode: Quick Patch — clicking any edge immediately patches/unpatches it in SQLite.',
+          toastScenarioSaved: name => `Saved scenario "${name}" to SQLite database.`,
+          toastScenarioLoaded: name => `Loaded scenario "${name}" and replanned attack paths.`,
+          toastScenarioDeleted: 'Scenario deleted from SQLite database.',
+          toastHistoryCleared: 'Search run history cleared from database.',
+          clickToInspectHint: 'Click hop to inspect:',
+          safeLabel: 'SAFE',
+          highCount: n => `${n} High`,
+          medCount: n => `${n} Med`,
+          lowCount: n => `${n} Low`
+        },
+        ku: {
+          langBtn: 'English',
+          editionBadge: 'وەشانی ئاسایشی زانیاری',
+          dbConnecting: 'پەیوەستبوون بە داتابەیس...',
+          dbConnected: s => `داتابەیسی SQLite · ${s.edges} کەلێن · ${s.scenarios} سیناریۆ`,
+          dbOffline: 'سێرڤەری باکئێند ناچالاکە (app.py کارپێبکە)',
+          appSubtitleTitle: '— شیکەرەوەی ڕێڕەوی هێرشی سایبەری',
+          appSubtitle: 'باکئێندی Flask + داتابەیسی SQLite · نمرەی CVSS v3.1، سێگۆشەی CIA و ڕاوێژکاری بەرگری',
+          btnCompareAll: 'بەراوردی هەر ٦',
+          btnRestore: 'گەڕاندنەوەی نێتۆرک',
+          btnRun: 'دەستپێکردن',
+          btnStep: 'هەنگاوێک',
+          btnReset: 'ڕیسێت',
+          lblStart: 'خاڵی دەستپێک (Start)',
+          lblGoal: 'ئامانجی سەرەکی (Goal)',
+          lblDls: 'سنووری قووڵایی DLS (l)',
+          lblSpeed: 'خێرایی ئەنیمەیشن',
+          graphTitle: 'گرافی هێرشی نێتۆرکی دامەزراوە (Attack Graph)',
+          graphHint: 'کلیک لەسەر هەر هێڵێکی کەلێن بکە بۆ <span class="text-indigo-300 font-medium">پشکنین و چارەسەر</span> (یان <span class="text-emerald-400 font-medium">دەبڵ-کلیک / داخستنی خێرا</span> بۆ داخستن و خەزنکردن لە DB).',
+          modeInspect: 'پشکنین',
+          modeQuickPatch: 'داخستنی خێرا',
+          legVisited: 'سەردانکراو',
+          legFrontier: 'Frontier',
+          legPath: 'ڕێڕەوی هێرش',
+          legPatched: 'چارەسەرکراو',
+          cvssLegendLbl: 'CVSS v3.1:',
+          sevCritical: 'مەترسیدار',
+          sevHigh: 'بەرز',
+          sevMedium: 'مامناوەند',
+          sevLow: 'نزم',
+          sevSecured: 'پارێزراو',
+          kpiAlgoLbl: 'ئەلگۆریتم',
+          kpiCostLbl: 'تێچووی هێرش g(n)',
+          kpiRiskLbl: 'ئاستی مەترسی (CVSS)',
+          kpiExpLbl: 'گرێ پشکنراوەکان',
+          kpiSpaceLbl: 'زۆرترین Frontier (Space)',
+          tabTrace: 'شوێنپێی ڕاستەوخۆ',
+          tabAdvisor: 'ڕاوێژکاری بەرگری',
+          tabFormulation: 'داڕشتنی AI',
+          lblDiscoveredPath: 'ڕێڕەوی هێرشی دۆزراوە',
+          lblFrontier: 'ڕیزی Frontierـی ئێستا (Queue / Stack)',
+          lblExecLog: 'تۆماری هەنگاو بە هەنگاو',
+          ciaPathTitle: 'کاریگەری سێگۆشەی CIA لەسەر ڕێڕەوی هێرش',
+          ciaC: 'نهێنیپارێزی (C)',
+          ciaI: 'تەواوی و دروستی (I)',
+          ciaA: 'بەردەستبوون (A)',
+          ciaNoPath: 'هیچ ڕێڕەوێکی هێرش چالاک نییە — هەر سێ پایەی CIA ئێستا پارێزراون.',
+          ciaPending: 'گەڕانێک ئەنجام بدە بۆ هەڵسەنگاندنی مەترسیی نهێنیپارێزی، دروستی و بەردەستبوون.',
+          ciaHopsMeta: (hops, peak) => `${hops} هەنگاو · بەرزترین CVSS ${peak.toFixed(1)}`,
+          ciaSecuredMeta: '0.0 / 10 · پارێزراو',
+          advSelectEdge: 'هێڵی کەلێنێک هەڵبژێرە بۆ پشکنین',
+          advVulnTech: 'ناوی کەلێن و تەکنیکی هێرش',
+          advCvssTitle: 'نمرەی توندیی CVSS v3.1',
+          advCiaTitle: 'شیکردنەوەی کاریگەریی سێگۆشەی CIA',
+          advPolicyTitle: 'سیاسەتی ئاسایشی پێشنیارکراو (Security Policy)',
+          advMechTitle: 'میکانیزمی بەرگری و چارەسەر (Security Mechanism)',
+          advBtnPatch: 'تاقیکردنەوەی چارەسەر (داخستن و خەزنکردن لە DB)',
+          advBtnUnpatch: 'گەڕاندنەوەی کەلێن لە داتابەیس',
+          advStatusActive: 'کەلێنی چالاک',
+          advStatusPatched: 'چارەسەرکراو / داخراو',
+          advOnActivePath: 'لەسەر ڕێڕەوی هێرشی ئێستا',
+          advHopCost: c => `تێچووی هێرش g=${c}`,
+          advDefenseNote: 'لە داتابەیسی SQLite خەزن دەکرێت. داخستن پلاندانانی Closed-Loop چالاک دەکات و لە تۆماری چاودێری تۆمار دەبێت.',
+          advReplanProtected: 'بەرگریی قووڵ (Defense-in-Depth) سەرکەوتوو بوو: هیچ ڕێڕەوێکی هێرش ناگاتە ئامانجی سەرەکی!',
+          advReplanAlt: (cost, risk) => `نوێکردنەوەی Closed-Loop: ڕێڕەوی نوێی مەترسیدار تێچووی g=${cost} و ئاستی مەترسیی ${risk}/10ـی هەیە.`,
+          benchTitle: 'بەراوردکاریی ئەلگۆریتمەکان (Uninformed vs. Informed Search)',
+          benchSub: 'هەڵسەنگاندنی Completeness، باشترین تێچوو، ئاستی مەترسیی CVSS، کات (گرێ سەردانکراوەکان) و میمۆری.',
+          benchBadge: 'بەراوردی ڕاستەوخۆ',
+          thAlgo: 'ئەلگۆریتم',
+          thType: 'جۆر',
+          thStatus: 'دۆخ',
+          thHops: 'هەنگاو',
+          thCost: 'تێچوو g(n)',
+          thRisk: 'مەترسی (CVSS)',
+          thExpanded: 'سەردانکراو',
+          thSpace: 'میمۆری',
+          dbHubTitle: 'داتابەیسی ئۆپەراسیۆنی ئاسایش (SQLite Persistence)',
+          dbHubSub: 'سیناریۆکانی بەرگری خەزن بکە، تۆماری وردبینیی چارەسەرەکان ببینە و مێژووی گەڕانەکان بەدواداچوون بکە.',
+          dbTabScenarios: 'سیناریۆ خەزنکراوەکان',
+          dbTabLogs: 'تۆماری وردبینیی بەرگری',
+          dbTabHistory: 'مێژووی گەڕانەکان',
+          btnSaveScenario: 'خەزنکردنی دۆخی ئێستا',
+          btnLoadScenario: 'بارکردنی سیناریۆ',
+          btnDelete: 'سڕینەوە',
+          btnClearHistory: 'سڕینەوەی مێژوو',
+          thLogTime: 'کات (UTC)',
+          thLogAction: 'کردار',
+          thLogTarget: 'کەلێن / ئامانج',
+          thLogRiskDelta: 'مەترسی پێش ← پاش',
+          thLogNote: 'وردەکاری',
+          thHistRoute: 'دەستپێک ← ئامانج',
+          thHistCia: 'CIA (C/I/A)',
+          scenNamePlaceholder: 'ناوی سیناریۆ (بۆ نموونە: توندکردنەوەی DMZ)',
+          scenDescPlaceholder: 'تێبینیی ئاسایش (ئارەزوومەندانە)...',
+          scenPatchedLabel: n => `${n} چارەسەرکراو`,
+          emptyLogs: 'هێشتا هیچ تۆمارێکی بەرگری نییە. کەلێنێک دابخە یان سیناریۆیەک بار بکە.',
+          emptyHistory: 'هێشتا هیچ مێژوویەکی گەڕان تۆمار نەکراوە.',
+          emptyScenarios: 'هیچ سیناریۆیەکی خەزنکراو نییە.',
+          formStateTitle: 'بۆشایی دۆخەکان (State Space)',
+          formStateDesc: '١٠ ئامێر و سێرڤەری پێکەوەبەستراوی نێتۆرک لە SQLite لە ئەنتەرنێتەوە تا داتابەیسی سەرەکی.',
+          formActionTitle: 'کردارەکان و گواستنەوە (Actions & Transition)',
+          formActionDesc: 'قۆستنەوەی هەر کەلێنێکی چارەسەرنەکراو (وەک Phishing یان SQLi) هاکەرەکە دەگوازێتەوە بۆ ئامێری داهاتوو.',
+          formCostTitle: 'تێچووی ڕێگا g(n)',
+          formCostDesc: 'ئاستی سەختیی هاککردنی هەر هەنگاوێک (١–٦). تا ژمارەکە کەمتر بێت، کەلێنەکە ئاسانتر و مەترسیدارترە.',
+          formHeurTitle: 'فەنکشنی Heuristic h(n)',
+          formHeurDesc: 'مەزەندەی کەمترین هەوڵی ماوە بۆ گەیشتن بە داتابەیسی سەرەکی (لە Goalـدا h = 0).',
+          formRiskTitle: 'نمرەی CVSS v3.1 و سێگۆشەی CIA',
+          formRiskDesc: 'هەر هێڵێکی کەلێن نمرەی CVSS v3.1 (لە 5.3 تا 9.8) و کاریگەریی نهێنیپارێزی، دروستی و بەردەستبوونی هەیە. ئاستی مەترسیی گشتیی ڕێڕەوەکە ٦٠٪ لە بەرزترین CVSS و ٤٠٪ لە تێکڕای CVSS پێکدێت.',
+          formClosedTitle: 'بەرگریی قووڵ و خەزنکردن لە داتابەیس',
+          formClosedDesc: 'هەموو داخستنێکی کەلێن، گەڕان و سیناریۆیەک لە داتابەیسی SQLite لە ڕێگەی Flask REST API خەزن دەکرێت.',
+          chartCost: 'تێچووی ڕێگای هێرش g(n)',
+          chartExpanded: 'گرێ پشکنراوەکان (کات)',
+          emptyFrontier: 'بەتاڵە',
+          pressRun: 'دوگمەی <span class="text-emerald-400 font-semibold">دەستپێکردن</span> دابگرە بۆ دۆزینەوەی ڕێڕەوی هێرش.',
+          patchedCount: n => `${n} چارەسەرکراو`,
+          stepOf: (a, b) => `هەنگاو ${a} / ${b}`,
+          uninformed: 'بێزانیاری',
+          informed: 'زانیاریدار',
+          optimal: 'باشترین',
+          found: 'دۆزرایەوە',
+          noPath: 'ڕێگا نییە',
+          cutoff: l => `بڕان (l=${l})`,
+          foundAtL: l => `دۆزرایەوە (l=${l})`,
+          exploring: node => `<span class="text-cyan-300">لە پشکنیندایە...</span> ئێستا لەسەر <span class="text-white font-semibold">${node}</span>`,
+          noPathReached: (status, goal) => `<span class="text-amber-400 font-semibold">${status}:</span> هیچ ڕێڕەوێکی هێرش نەگەیشتە <span class="text-emerald-300 font-semibold">${goal}</span>.`,
+          pathSummaryPill: (cost, hops) => `تێچوو g=${cost} (${hops} هەنگاو)`,
+          riskScoreFmt: (score, sev) => `${score.toFixed(1)} / 10 (${sev})`,
+          toastCompare: 'هەر ٦ ئەلگۆریتمەکە لە ڕێگەی Flask API بەراورد کران. کلیک لەسەر هەر ڕیزێک بکە!',
+          toastRestore: 'هەموو ١٧ کەلێنەکەی نێتۆرک لە داتابەیسی SQLite گەڕێندرانەوە.',
+          toastPatched: (vuln, from, to) => `چارەسەرکرا و لە DB خەزنکرا: ${vuln} (${from} ← ${to})`,
+          toastReopened: (vuln, from, to) => `لە DB کرایەوە: ${vuln} (${from} ← ${to})`,
+          toastInspect: (vuln, cvss, sev) => `پشکنینی ${vuln} — CVSS ${cvss.toFixed(1)} (${sev})`,
+          toastModeInspect: 'دۆخی کلیک: پشکنین لە ڕاوێژکاری بەرگری (دەبڵ-کلیک بۆ داخستنی خێرا).',
+          toastModePatch: 'دۆخی کلیک: داخستنی خێرا — کلیک لەسەر هەر هێڵێک یەکسەر لە SQLite دایدەخات یان دەیکاتەوە.',
+          toastScenarioSaved: name => `سیناریۆی "${name}" لە داتابەیسی SQLite خەزنکرا.`,
+          toastScenarioLoaded: name => `سیناریۆی "${name}" بارکرا و ڕێڕەوی هێرش نوێکرایەوە.`,
+          toastScenarioDeleted: 'سیناریۆکە لە داتابەیسی SQLite سڕایەوە.',
+          toastHistoryCleared: 'مێژووی گەڕانەکان لە داتابەیس سڕایەوە.',
+          clickToInspectHint: 'کلیک بکە بۆ پشکنینی هەنگاوەکان:',
+          safeLabel: 'پارێزراو',
+          highCount: n => `${n} بەرز`,
+          medCount: n => `${n} مامناوەند`,
+          lowCount: n => `${n} نزم`
+        }
+      };
+
+      const state = {
+        lang: 'en',
+        selectedAlgo: 'ASTAR',
+        startId: 'internet',
+        goalId: 'core_db',
+        dlsLimit: 2,
+        speedMs: 650,
+        clickMode: 'inspect',
+        activeTab: 'trace',
+        activeDbTab: 'scenarios',
+        selectedEdgeId: 'e16',
+        nodes: [],
+        edges: [],
+        patchedEdges: new Set(),
+        steps: [],
+        currentStepIdx: -1,
+        finalResult: null,
+        timerId: null,
+        chartInstance: null,
+        dbStats: null,
+        scenarios: [],
+        logs: [],
+        history: [],
+        lastEdgeClick: { id: null, time: 0 }
+      };
+
+      const API_BASE = (window.location.protocol.startsWith('http') && window.location.port === '5000')
+        ? ''
+        : 'http://127.0.0.1:5000';
+
+      const $ = id => document.getElementById(id);
+      const getNodeMap = () => Object.fromEntries(state.nodes.map(n => [n.id, n]));
+      const getEdgeMap = () => Object.fromEntries(state.edges.map(e => [e.id, e]));
+
+      function escapeHtml(val) {
+        return String(val ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      async function apiRequest(url, options = {}) {
+        const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+        const res = await fetch(fullUrl, {
+          ...options,
+          headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `API Error (${res.status})`);
+        return data;
+      }
+
+      function getNodeLabel(id) {
+        const n = getNodeMap()[id];
+        if (!n) return id;
+        return state.lang === 'ku' ? `${n.label} (${n.kuLabel})` : n.label;
+      }
+
+      function getShortNodeLabel(id) {
+        const n = getNodeMap()[id];
+        return n ? n.label : id;
+      }
+
+      function getHeuristic(nodeId, goalId) {
+        const nodeMap = getNodeMap();
+        if (!nodeMap[nodeId] || !nodeMap[goalId]) return 0;
+        if (nodeId === goalId) return 0;
+        if (goalId === 'core_db') return nodeMap[nodeId].h;
+        const a = nodeMap[nodeId];
+        const b = nodeMap[goalId];
+        return Math.max(1, Math.round(Math.hypot(a.x - b.x, a.y - b.y) / 120));
+      }
+
+      function getPathEdges(path) {
+        if (!path || path.length < 2) return [];
+        const edges = [];
+        for (let i = 0; i < path.length - 1; i++) {
+          const edge = state.edges.find(e => e.from === path[i] && e.to === path[i + 1] && !state.patchedEdges.has(e.id))
+            || state.edges.find(e => e.from === path[i] && e.to === path[i + 1]);
+          if (edge) edges.push(edge);
+        }
+        return edges;
+      }
+
+      function localizeSeverity(sev) {
+        const t = I18N[state.lang];
+        if (sev === 'Critical') return t.sevCritical;
+        if (sev === 'High') return t.sevHigh;
+        if (sev === 'Medium') return t.sevMedium;
+        if (sev === 'Low') return t.sevLow;
+        return t.sevSecured;
+      }
+
+      function severityClasses(sev) {
+        if (sev === 'Critical') return { badge: 'bg-rose-500/20 text-rose-300 border-rose-500/45', text: 'text-rose-400', dot: '#f43f5e', bar: 'bg-rose-500' };
+        if (sev === 'High') return { badge: 'bg-orange-500/20 text-orange-300 border-orange-500/45', text: 'text-orange-400', dot: '#f97316', bar: 'bg-orange-500' };
+        if (sev === 'Medium') return { badge: 'bg-amber-500/20 text-amber-300 border-amber-500/45', text: 'text-amber-300', dot: '#fbbf24', bar: 'bg-amber-400' };
+        if (sev === 'Low') return { badge: 'bg-sky-500/20 text-sky-300 border-sky-500/45', text: 'text-sky-300', dot: '#38bdf8', bar: 'bg-sky-400' };
+        return { badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/45', text: 'text-emerald-400', dot: '#10b981', bar: 'bg-emerald-500' };
+      }
+
+      function formatStatusText(result) {
+        const t = I18N[state.lang];
+        if (result.statusKey === 'optimal') return t.optimal;
+        if (result.statusKey === 'found') return t.found;
+        if (result.statusKey === 'foundAtL') return t.foundAtL(result.statusArg);
+        if (result.statusKey === 'cutoff') return t.cutoff(result.statusArg);
+        return t.noPath;
+      }
+
+      function showToast(msg) {
+        const el = $('graphToast');
+        el.textContent = msg;
+        el.classList.remove('opacity-0');
+        el.classList.add('opacity-100');
+        clearTimeout(el._t);
+        el._t = setTimeout(() => {
+          el.classList.remove('opacity-100');
+          el.classList.add('opacity-0');
+        }, 3200);
+      }
+
+      function updateDbStatusBadge(stats, offline = false) {
+        const t = I18N[state.lang];
+        const dot = $('dbStatusDot');
+        const txt = $('dbStatusText');
+        if (offline) {
+          dot.className = 'w-2 h-2 rounded-full bg-rose-500';
+          txt.textContent = t.dbOffline;
+          return;
+        }
+        if (stats) {
+          state.dbStats = stats;
+          dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+          txt.textContent = t.dbConnected(stats);
+        }
+      }
+
+      // =========================================================
+      // SVG Graph Rendering
+      // =========================================================
+      function computeEdgeGeometry(edge) {
+        const nodeMap = getNodeMap();
+        const a = nodeMap[edge.from];
+        const b = nodeMap[edge.to];
+        const t = edge.t || 0.5;
+
+        if (edge.curveX !== undefined && edge.curveX !== null) {
+          const cx = edge.curveX;
+          const cy = (a.y + b.y) / 2;
+          const v1x = cx - a.x, v1y = cy - a.y;
+          const l1 = Math.hypot(v1x, v1y) || 1;
+          const x1 = a.x + (v1x / l1) * 32;
+          const y1 = a.y + (v1y / l1) * 32;
+
+          const v2x = b.x - cx, v2y = b.y - cy;
+          const l2 = Math.hypot(v2x, v2y) || 1;
+          const x2 = b.x - (v2x / l2) * 35;
+          const y2 = b.y - (v2y / l2) * 35;
+
+          const u = 1 - t;
+          const mx = u * u * x1 + 2 * u * t * cx + t * t * x2;
+          const my = u * u * y1 + 2 * u * t * cy + t * t * y2;
+          return { isCurve: true, d: `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`, mx, my };
+        }
+
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const x1 = a.x + (dx / len) * 34;
+        const y1 = a.y + (dy / len) * 34;
+        const x2 = b.x - (dx / len) * 36;
+        const y2 = b.y - (dy / len) * 36;
+        const mx = x1 + (x2 - x1) * t;
+        const my = y1 + (y2 - y1) * t;
+        return { isCurve: false, x1, y1, x2, y2, mx, my };
+      }
+
+      function renderGraph() {
+        const edgesLayer = $('edgesLayer');
+        const nodesLayer = $('nodesLayer');
+        edgesLayer.replaceChildren();
+        nodesLayer.replaceChildren();
+        const nodeMap = getNodeMap();
+
+        const step = state.currentStepIdx >= 0 ? state.steps[state.currentStepIdx] : null;
+        const visitedSet = new Set(step ? step.visited : []);
+        const currentNode = step ? step.current : null;
+        const finalPath = step && step.foundPath ? step.foundPath : [];
+        const pathEdgeSet = new Set();
+        for (let i = 0; i < finalPath.length - 1; i++) {
+          pathEdgeSet.add(`${finalPath[i]}->${finalPath[i + 1]}`);
+        }
+        const pathNodeSet = new Set(finalPath);
+        const t = I18N[state.lang];
+
+        state.edges.forEach(edge => {
+          const a = nodeMap[edge.from];
+          const b = nodeMap[edge.to];
+          if (!a || !b) return;
+          const isPatched = state.patchedEdges.has(edge.id);
+          const isOnPath = !isPatched && pathEdgeSet.has(`${edge.from}->${edge.to}`);
+          const isExplored = !isPatched && !isOnPath && visitedSet.has(edge.from) && visitedSet.has(edge.to);
+          const isSelected = edge.id === state.selectedEdgeId;
+          const sevStyle = severityClasses(edge.severity);
+          const geom = computeEdgeGeometry(edge);
+
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', isSelected ? 'edge-hit edge-selected' : 'edge-hit');
+          g.addEventListener('click', () => onEdgeClick(edge));
+
+          const hitEl = document.createElementNS('http://www.w3.org/2000/svg', geom.isCurve ? 'path' : 'line');
+          if (geom.isCurve) {
+            hitEl.setAttribute('d', geom.d);
+            hitEl.setAttribute('fill', 'none');
+          } else {
+            hitEl.setAttribute('x1', geom.x1);
+            hitEl.setAttribute('y1', geom.y1);
+            hitEl.setAttribute('x2', geom.x2);
+            hitEl.setAttribute('y2', geom.y2);
+          }
+          hitEl.setAttribute('stroke', 'transparent');
+          hitEl.setAttribute('stroke-width', '18');
+          g.appendChild(hitEl);
+
+          const lineEl = document.createElementNS('http://www.w3.org/2000/svg', geom.isCurve ? 'path' : 'line');
+          if (geom.isCurve) {
+            lineEl.setAttribute('d', geom.d);
+            lineEl.setAttribute('fill', 'none');
+          } else {
+            lineEl.setAttribute('x1', geom.x1);
+            lineEl.setAttribute('y1', geom.y1);
+            lineEl.setAttribute('x2', geom.x2);
+            lineEl.setAttribute('y2', geom.y2);
+          }
+
+          let stroke = '#334155', width = '2', marker = 'url(#arrowDefault)', extraClass = 'edge-line';
+          if (isPatched) {
+            stroke = '#10b981'; width = isSelected ? '2.8' : '2'; marker = 'url(#arrowPatched)';
+            lineEl.setAttribute('stroke-dasharray', '4 4'); lineEl.setAttribute('opacity', '0.6');
+          } else if (isOnPath) {
+            stroke = '#f43f5e'; width = '3.5'; marker = 'url(#arrowPath)'; extraClass += ' attack-path-flow';
+          } else if (isSelected) {
+            stroke = '#818cf8'; width = '3'; marker = 'url(#arrowSelected)';
+          } else if (isExplored) {
+            stroke = '#22d3ee'; width = '2.4'; marker = 'url(#arrowVisited)';
+          }
+
+          lineEl.setAttribute('class', extraClass);
+          lineEl.setAttribute('stroke', stroke);
+          lineEl.setAttribute('stroke-width', width);
+          lineEl.setAttribute('marker-end', marker);
+          g.appendChild(lineEl);
+
+          const pillW = isPatched ? 48 : 60;
+          const pillH = 19;
+          const pill = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          pill.setAttribute('x', geom.mx - pillW / 2);
+          pill.setAttribute('y', geom.my - pillH / 2);
+          pill.setAttribute('width', String(pillW));
+          pill.setAttribute('height', String(pillH));
+          pill.setAttribute('rx', '9.5');
+          pill.setAttribute('fill', isPatched ? '#064e3b' : (isOnPath ? '#4c0519' : (isSelected ? '#1e1b4b' : '#0f172a')));
+          pill.setAttribute('stroke', isSelected ? '#818cf8' : (isPatched ? '#10b981' : (isOnPath ? '#f43f5e' : '#334155')));
+          pill.setAttribute('stroke-width', isSelected ? '1.8' : '1');
+          g.appendChild(pill);
+
+          if (!isPatched) {
+            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            dot.setAttribute('cx', geom.mx - pillW / 2 + 8);
+            dot.setAttribute('cy', geom.my);
+            dot.setAttribute('r', '3');
+            dot.setAttribute('fill', sevStyle.dot);
+            g.appendChild(dot);
+          }
+
+          const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          txt.setAttribute('x', isPatched ? geom.mx : geom.mx + 4);
+          txt.setAttribute('y', geom.my + 3.4);
+          txt.setAttribute('text-anchor', 'middle');
+          txt.setAttribute('font-size', '9.5');
+          txt.setAttribute('font-weight', '600');
+          txt.setAttribute('font-family', 'JetBrains Mono, monospace');
+          txt.setAttribute('fill', isPatched ? '#6ee7b7' : (isOnPath ? '#fecdd3' : '#e2e8f0'));
+          txt.textContent = isPatched ? t.safeLabel : `${edge.cost}·${edge.cvss.toFixed(1)}`;
+          g.appendChild(txt);
+
+          const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+          title.textContent = `${a.label} → ${b.label} | ${edge.vuln} | CVSS ${edge.cvss.toFixed(1)} (${edge.severity}) | CIA: C:${edge.cia.c[0]} I:${edge.cia.i[0]} A:${edge.cia.a[0]} | Cost g=${edge.cost}`;
+          g.appendChild(title);
+
+          edgesLayer.appendChild(g);
+        });
+
+        state.nodes.forEach(node => {
+          const isStart = node.id === state.startId;
+          const isGoal = node.id === state.goalId;
+          const isCurrent = node.id === currentNode;
+          const isOnPath = pathNodeSet.has(node.id);
+          const isVisited = visitedSet.has(node.id);
+          const hVal = getHeuristic(node.id, state.goalId);
+
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'node-group');
+
+          if (isCurrent) {
+            const pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            pulse.setAttribute('cx', node.x);
+            pulse.setAttribute('cy', node.y);
+            pulse.setAttribute('r', '34');
+            pulse.setAttribute('fill', 'none');
+            pulse.setAttribute('stroke', '#f59e0b');
+            pulse.setAttribute('class', 'node-active-ring');
+            g.appendChild(pulse);
+          }
+
+          let fill = '#0f172a', stroke = '#475569', strokeW = '2';
+          if (isOnPath) { fill = '#4c0519'; stroke = '#f43f5e'; strokeW = '3'; }
+          else if (isCurrent) { fill = '#451a03'; stroke = '#f59e0b'; strokeW = '3'; }
+          else if (isVisited) { fill = '#083344'; stroke = '#22d3ee'; strokeW = '2.5'; }
+          else if (isStart) { fill = '#1e1b4b'; stroke = '#818cf8'; strokeW = '2.5'; }
+          else if (isGoal) { fill = '#2e1065'; stroke = '#c084fc'; strokeW = '2.5'; }
+
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('cx', node.x);
+          circle.setAttribute('cy', node.y);
+          circle.setAttribute('r', '28');
+          circle.setAttribute('fill', fill);
+          circle.setAttribute('stroke', stroke);
+          circle.setAttribute('stroke-width', strokeW);
+          g.appendChild(circle);
+
+          const hBadge = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          hBadge.setAttribute('x', node.x + 12);
+          hBadge.setAttribute('y', node.y - 34);
+          hBadge.setAttribute('width', '34');
+          hBadge.setAttribute('height', '16');
+          hBadge.setAttribute('rx', '8');
+          hBadge.setAttribute('fill', '#1e293b');
+          hBadge.setAttribute('stroke', '#38bdf8');
+          hBadge.setAttribute('stroke-width', '1');
+          g.appendChild(hBadge);
+
+          const hText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          hText.setAttribute('x', node.x + 29);
+          hText.setAttribute('y', node.y - 23);
+          hText.setAttribute('text-anchor', 'middle');
+          hText.setAttribute('font-size', '9.5');
+          hText.setAttribute('font-family', 'JetBrains Mono, monospace');
+          hText.setAttribute('fill', '#7dd3fc');
+          hText.textContent = `h=${hVal}`;
+          g.appendChild(hText);
+
+          const roleTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          roleTxt.setAttribute('x', node.x);
+          roleTxt.setAttribute('y', node.y + 4);
+          roleTxt.setAttribute('text-anchor', 'middle');
+          roleTxt.setAttribute('font-size', '10');
+          roleTxt.setAttribute('font-weight', '600');
+          roleTxt.setAttribute('fill', isOnPath ? '#fecdd3' : '#e2e8f0');
+          roleTxt.textContent = isStart ? 'START' : (isGoal ? 'GOAL' : node.tag);
+          g.appendChild(roleTxt);
+
+          const labelTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          labelTxt.setAttribute('x', node.x);
+          labelTxt.setAttribute('y', node.y + 43);
+          labelTxt.setAttribute('text-anchor', 'middle');
+          labelTxt.setAttribute('font-size', '11.5');
+          labelTxt.setAttribute('font-weight', '600');
+          labelTxt.setAttribute('fill', isOnPath ? '#fda4af' : '#f1f5f9');
+          labelTxt.textContent = node.label;
+          g.appendChild(labelTxt);
+
+          nodesLayer.appendChild(g);
+        });
+      }
+
+      // =========================================================
+      // Inspector, CIA Triad & Defense Advisor
+      // =========================================================
+      function switchTab(tabName) {
+        state.activeTab = tabName;
+        [
+          { key: 'trace', btn: $('tabTrace'), panel: $('panelTrace') },
+          { key: 'advisor', btn: $('tabAdvisor'), panel: $('panelAdvisor') },
+          { key: 'formulation', btn: $('tabFormulation'), panel: $('panelFormulation') }
+        ].forEach(item => {
+          const active = item.key === tabName;
+          item.panel.classList.toggle('hidden', !active);
+          item.btn.className = active
+            ? 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 inline-flex items-center gap-1'
+            : 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent inline-flex items-center gap-1';
+        });
+      }
+
+      function switchDbTab(tabName) {
+        state.activeDbTab = tabName;
+        [
+          { key: 'scenarios', btn: $('dbTabScenarios'), panel: $('dbPanelScenarios') },
+          { key: 'logs', btn: $('dbTabLogs'), panel: $('dbPanelLogs') },
+          { key: 'history', btn: $('dbTabHistory'), panel: $('dbPanelHistory') }
+        ].forEach(item => {
+          const active = item.key === tabName;
+          item.panel.classList.toggle('hidden', !active);
+          item.btn.className = active
+            ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/20 text-indigo-200 border border-indigo-400/40'
+            : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent';
+        });
+      }
+
+      function populateEdgeSelector() {
+        const sel = $('selectEdgeAdvisor');
+        const current = state.selectedEdgeId;
+        sel.innerHTML = '';
+        const t = I18N[state.lang];
+        state.edges.forEach(edge => {
+          const patchedTag = state.patchedEdges.has(edge.id) ? `[${t.safeLabel}] ` : '';
+          const label = `${patchedTag}${edge.vuln} · CVSS ${edge.cvss.toFixed(1)} (${getShortNodeLabel(edge.from)} → ${getShortNodeLabel(edge.to)})`;
+          sel.add(new Option(label, edge.id));
+        });
+        if (getEdgeMap()[current]) sel.value = current;
+      }
+
+      function renderCiaTriadSummary(sec, hasResult) {
+        const t = I18N[state.lang];
+        const container = $('ciaTriadSummary');
+        const metaEl = $('ciaSummaryMeta');
+
+        if (!hasResult || !sec) {
+          metaEl.textContent = '—';
+          container.innerHTML = `<p class="text-[11px] text-slate-500">${t.ciaPending}</p>`;
+          return;
+        }
+
+        if (!sec.hasPath) {
+          metaEl.textContent = t.ciaSecuredMeta;
+          metaEl.className = 'font-mono-code text-[10px] text-emerald-400';
+          container.innerHTML = `
+            <div class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] flex items-center gap-2">
+              <i data-lucide="shield-check" class="w-4 h-4 shrink-0"></i>
+              <span>${t.ciaNoPath}</span>
+            </div>
+          `;
+          if (window.lucide) window.lucide.createIcons();
+          return;
+        }
+
+        metaEl.textContent = t.ciaHopsMeta(sec.edgeIds.length, sec.peakCvss);
+        metaEl.className = 'font-mono-code text-[10px] text-slate-400';
+
+        [
+          { label: t.ciaC, data: sec.cia.c },
+          { label: t.ciaI, data: sec.cia.i },
+          { label: t.ciaA, data: sec.cia.a }
+        ].forEach((p, idx) => {
+          if (idx === 0) container.innerHTML = '';
+          const style = severityClasses(p.data.level);
+          const breakdown = [
+            p.data.high ? t.highCount(p.data.high) : '',
+            p.data.med ? t.medCount(p.data.med) : '',
+            p.data.low ? t.lowCount(p.data.low) : ''
+          ].filter(Boolean).join(' · ');
+
+          container.insertAdjacentHTML('beforeend', `
+            <div class="space-y-1">
+              <div class="flex items-center justify-between gap-2 text-[11px]">
+                <span class="text-slate-200 font-medium">${escapeHtml(p.label)}</span>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] text-slate-400 font-mono-code">${escapeHtml(breakdown)}</span>
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold border ${style.badge}">${escapeHtml(localizeSeverity(p.data.level))}</span>
+                </div>
+              </div>
+              <div class="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-300 ${style.bar}" style="width: ${p.data.pct}%"></div>
+              </div>
+            </div>
+          `);
+        });
+      }
+
+      function renderDefenseAdvisor() {
+        populateEdgeSelector();
+        const edge = getEdgeMap()[state.selectedEdgeId] || state.edges[0];
+        if (!edge) return;
+        const t = I18N[state.lang];
+        const isPatched = state.patchedEdges.has(edge.id);
+        const sevStyle = severityClasses(edge.severity);
+
+        const activePathEdges = (state.finalResult && state.finalResult.found && state.currentStepIdx === state.steps.length - 1)
+          ? (state.finalResult.security?.edgeIds || [])
+          : [];
+        const isOnActivePath = !isPatched && activePathEdges.includes(edge.id);
+
+        const ciaCards = [
+          { label: t.ciaC, val: edge.cia.c },
+          { label: t.ciaI, val: edge.cia.i },
+          { label: t.ciaA, val: edge.cia.a }
+        ].map(item => {
+          const st = severityClasses(item.val);
+          return `
+            <div class="rounded-lg bg-slate-950/90 border border-slate-800 p-2 text-center">
+              <div class="text-[10px] text-slate-400 truncate">${escapeHtml(item.label)}</div>
+              <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${st.badge}">
+                ${escapeHtml(localizeSeverity(item.val))}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        let defenseBanner = '';
+        if (state.finalResult && state.currentStepIdx === state.steps.length - 1) {
+          if (!state.finalResult.found) {
+            defenseBanner = `
+              <div class="rounded-xl bg-emerald-500/10 border border-emerald-500/35 p-2.5 text-emerald-300 text-[11px] flex items-start gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                <span>${escapeHtml(t.advReplanProtected)}</span>
+              </div>
+            `;
+          } else if (state.patchedEdges.size > 0) {
+            defenseBanner = `
+              <div class="rounded-xl bg-amber-500/10 border border-amber-500/30 p-2.5 text-amber-200 text-[11px] flex items-start gap-2">
+                <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5 text-amber-400"></i>
+                <span>${escapeHtml(t.advReplanAlt(state.finalResult.cost, state.finalResult.riskScore.toFixed(1)))}</span>
+              </div>
+            `;
+          }
+        }
+
+        $('advisorContent').innerHTML = `
+          ${defenseBanner}
+          <div class="rounded-xl bg-slate-900/90 border ${isPatched ? 'border-emerald-500/40' : 'border-slate-800'} p-3 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-1.5">
+              <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">${escapeHtml(t.advVulnTech)}</span>
+              <div class="flex flex-wrap items-center gap-1">
+                ${isOnActivePath ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40">${escapeHtml(t.advOnActivePath)}</span>` : ''}
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold border ${isPatched ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/15 text-rose-300 border-rose-500/35'}">
+                  ${escapeHtml(isPatched ? t.advStatusPatched : t.advStatusActive)}
+                </span>
+              </div>
+            </div>
+            <div class="flex items-baseline justify-between gap-2">
+              <h3 class="text-sm font-bold text-white">${escapeHtml(edge.vuln)}</h3>
+              <span class="font-mono-code text-[11px] text-cyan-300">${escapeHtml(t.advHopCost(edge.cost))}</span>
+            </div>
+            <div class="text-[11px] font-mono-code text-slate-400">
+              ${escapeHtml(getNodeLabel(edge.from))} <span class="text-cyan-400">→</span> ${escapeHtml(getNodeLabel(edge.to))}
+            </div>
+            <p class="text-slate-300 leading-relaxed pt-1 border-t border-slate-800/80">${escapeHtml(edge.technique[state.lang])}</p>
+          </div>
+
+          <div class="rounded-xl bg-slate-900/90 border border-slate-800 p-3 space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">${escapeHtml(t.advCvssTitle)}</span>
+              <span class="font-mono-code px-2.5 py-0.5 rounded-full text-xs font-bold border ${sevStyle.badge}">
+                ${edge.cvss.toFixed(1)} · ${escapeHtml(localizeSeverity(edge.severity))}
+              </span>
+            </div>
+            <div class="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+              <div class="h-full rounded-full ${sevStyle.bar}" style="width: ${Math.round((edge.cvss / 10) * 100)}%"></div>
+            </div>
+            <div class="font-mono-code text-[10px] text-slate-500 break-all" dir="ltr">CVSS:3.1/${escapeHtml(edge.vector)}</div>
+          </div>
+
+          <div class="rounded-xl bg-slate-900/90 border border-slate-800 p-3 space-y-2">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">${escapeHtml(t.advCiaTitle)}</div>
+            <div class="grid grid-cols-3 gap-1.5">${ciaCards}</div>
+          </div>
+
+          <div class="rounded-xl bg-slate-900/90 border border-slate-800 p-3 space-y-2.5">
+            <div>
+              <div class="text-[10px] uppercase tracking-wider text-indigo-300 font-semibold flex items-center gap-1.5 mb-1">
+                <i data-lucide="file-check-2" class="w-3.5 h-3.5"></i>
+                <span>${escapeHtml(t.advPolicyTitle)}</span>
+              </div>
+              <p class="text-slate-200 leading-relaxed">${escapeHtml(edge.policy[state.lang])}</p>
+            </div>
+            <div class="pt-2 border-t border-slate-800/80">
+              <div class="text-[10px] uppercase tracking-wider text-emerald-300 font-semibold flex items-center gap-1.5 mb-1">
+                <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+                <span>${escapeHtml(t.advMechTitle)}</span>
+              </div>
+              <p class="text-slate-200 leading-relaxed">${escapeHtml(edge.mechanism[state.lang])}</p>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <button id="btnAdvisorPatch" class="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl font-semibold text-xs transition shadow-md ${
+              isPatched
+                ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40'
+                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
+            }">
+              <i data-lucide="${isPatched ? 'rotate-ccw' : 'shield-plus'}" class="w-4 h-4"></i>
+              <span>${escapeHtml(isPatched ? t.advBtnUnpatch : t.advBtnPatch)}</span>
+            </button>
+            <p class="text-[10px] text-slate-400 leading-snug text-center">${escapeHtml(t.advDefenseNote)}</p>
+          </div>
+        `;
+
+        $('btnAdvisorPatch').addEventListener('click', () => togglePatchEdge(edge));
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      function updateInspector() {
+        const res = state.finalResult;
+        const step = state.currentStepIdx >= 0 ? state.steps[state.currentStepIdx] : null;
+        const t = I18N[state.lang];
+        const nodeMap = getNodeMap();
+
+        $('kpiAlgo').textContent = ALGO_META[state.selectedAlgo].name;
+        $('stepCounter').textContent = t.stepOf(Math.max(0, state.currentStepIdx + 1), state.steps.length);
+        $('patchedBadge').textContent = t.patchedCount(state.patchedEdges.size);
+
+        const kpiRiskEl = $('kpiRisk');
+        const pathRiskBadgeEl = $('pathRiskBadge');
+        const quickBarEl = $('pathEdgesQuickBar');
+
+        if (!step || !res) {
+          $('kpiCost').textContent = '—';
+          kpiRiskEl.textContent = '—';
+          kpiRiskEl.className = 'font-mono-code font-semibold text-sm text-slate-400 mt-0.5';
+          $('kpiExpanded').textContent = '0';
+          $('kpiFrontier').textContent = '0';
+          $('frontierDisplay').innerHTML = `<span class="text-slate-500">${escapeHtml(t.emptyFrontier)}</span>`;
+          $('pathDisplay').innerHTML = t.pressRun;
+          pathRiskBadgeEl.textContent = '—';
+          pathRiskBadgeEl.className = 'font-mono-code text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
+          quickBarEl.innerHTML = '';
+          $('traceLog').innerHTML = '';
+          renderCiaTriadSummary(null, false);
+          renderDefenseAdvisor();
+          return;
+        }
+
+        const isFinalStep = state.currentStepIdx === state.steps.length - 1;
+        $('kpiExpanded').textContent = String(isFinalStep ? res.expanded : state.currentStepIdx + 1);
+        $('kpiFrontier').textContent = String(res.maxFrontier);
+        $('kpiCost').textContent = (isFinalStep && res.found) ? String(res.cost) : (isFinalStep ? formatStatusText(res) : '...');
+
+        if (isFinalStep) {
+          const sec = res.security;
+          const sevStyle = severityClasses(sec.severity);
+          kpiRiskEl.textContent = res.found
+            ? `${sec.riskScore.toFixed(1)} · ${localizeSeverity(sec.severity)}`
+            : `0.0 · ${t.sevSecured}`;
+          kpiRiskEl.className = `font-mono-code font-semibold text-sm mt-0.5 ${sevStyle.text}`;
+
+          pathRiskBadgeEl.textContent = res.found
+            ? t.riskScoreFmt(sec.riskScore, localizeSeverity(sec.severity))
+            : `0.0 / 10 (${t.sevSecured})`;
+          pathRiskBadgeEl.className = `font-mono-code text-[10px] font-semibold px-2 py-0.5 rounded-full border ${sevStyle.badge}`;
+
+          renderCiaTriadSummary(sec, true);
+
+          if (res.found) {
+            const pathEdges = getPathEdges(res.path);
+            quickBarEl.innerHTML = `
+              <span class="text-[10px] text-slate-400 self-center">${escapeHtml(t.clickToInspectHint)}</span>
+              ${pathEdges.map(e => {
+                const st = severityClasses(e.severity);
+                return `<button type="button" data-inspect-edge="${e.id}" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono-code border ${st.badge} hover:brightness-125 transition">
+                  <span>${escapeHtml(e.vuln)}</span>
+                  <span class="font-bold">${e.cvss.toFixed(1)}</span>
+                </button>`;
+              }).join('')}
+            `;
+            quickBarEl.querySelectorAll('button[data-inspect-edge]').forEach(btn => {
+              btn.addEventListener('click', () => inspectEdge(btn.dataset.inspectEdge, true));
+            });
+          } else {
+            quickBarEl.innerHTML = '';
+          }
+        } else {
+          kpiRiskEl.textContent = '...';
+          kpiRiskEl.className = 'font-mono-code font-semibold text-sm text-cyan-300 mt-0.5';
+          pathRiskBadgeEl.textContent = '...';
+          pathRiskBadgeEl.className = 'font-mono-code text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30';
+          quickBarEl.innerHTML = '';
+          renderCiaTriadSummary(null, false);
+        }
+
+        const frontierEl = $('frontierDisplay');
+        frontierEl.innerHTML = step.frontier.length === 0
+          ? `<span class="text-slate-500">${escapeHtml(t.emptyFrontier)}</span>`
+          : step.frontier.slice(0, 12).map(f =>
+              `<span class="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px]">${escapeHtml(f)}</span>`
+            ).join('');
+
+        const pathEl = $('pathDisplay');
+        if (isFinalStep && res.found) {
+          const arrow = state.lang === 'ku' ? '←' : '→';
+          const chain = res.path.map(id => `<span class="text-rose-300 font-semibold">${escapeHtml(nodeMap[id]?.label || id)}</span>`).join(` <span class="text-slate-500">${arrow}</span> `);
+          pathEl.innerHTML = `${chain} <span class="mx-1 inline-block px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">${escapeHtml(t.pathSummaryPill(res.cost, res.hops))}</span>`;
+        } else if (isFinalStep && !res.found) {
+          pathEl.innerHTML = t.noPathReached(escapeHtml(formatStatusText(res)), escapeHtml(getNodeLabel(state.goalId)));
+        } else {
+          pathEl.innerHTML = t.exploring(escapeHtml(getNodeLabel(step.current)));
+        }
+
+        const logEl = $('traceLog');
+        logEl.innerHTML = state.steps.slice(0, state.currentStepIdx + 1).map((s, idx) => {
+          const isLatest = idx === state.currentStepIdx;
+          const border = s.foundPath
+            ? 'border-rose-500/50 bg-rose-500/10 text-rose-200'
+            : (isLatest ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-100' : 'border-slate-800 bg-slate-900/60 text-slate-400');
+          return `<div class="px-2.5 py-1.5 rounded-lg border ${border}" dir="ltr"><span class="text-slate-500 mr-1.5">#${idx + 1}</span>${escapeHtml(s.note)}</div>`;
+        }).join('');
+        logEl.scrollTop = logEl.scrollHeight;
+
+        renderDefenseAdvisor();
+      }
+
+      // =========================================================
+      // Database Hub Rendering (Scenarios, Audit Logs, Search History)
+      // =========================================================
+      function renderDbHub() {
+        const t = I18N[state.lang];
+
+        // 1. Scenarios
+        const scenWrap = $('scenariosList');
+        if (!state.scenarios.length) {
+          scenWrap.innerHTML = `<div class="md:col-span-3 text-xs text-slate-500 py-4 text-center">${escapeHtml(t.emptyScenarios)}</div>`;
+        } else {
+          scenWrap.innerHTML = state.scenarios.map(s => {
+            const st = severityClasses(s.risk_severity);
+            return `
+              <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3 flex flex-col justify-between gap-2.5">
+                <div class="space-y-1">
+                  <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-xs font-bold text-white leading-snug">${escapeHtml(s.name)}</h3>
+                    <span class="shrink-0 font-mono-code text-[10px] font-semibold px-2 py-0.5 rounded-full border ${st.badge}">
+                      ${Number(s.risk_score).toFixed(1)} · ${escapeHtml(localizeSeverity(s.risk_severity))}
+                    </span>
+                  </div>
+                  ${s.description ? `<p class="text-[11px] text-slate-400 leading-relaxed">${escapeHtml(s.description)}</p>` : ''}
+                  <div class="flex flex-wrap items-center gap-2 pt-1 text-[10px] font-mono-code text-slate-400">
+                    <span>${escapeHtml(s.algo)}</span>
+                    <span>•</span>
+                    <span>${escapeHtml(getShortNodeLabel(s.start_node))} → ${escapeHtml(getShortNodeLabel(s.goal_node))}</span>
+                    <span>•</span>
+                    <span class="text-emerald-400">${escapeHtml(t.scenPatchedLabel(s.patchedEdges.length))}</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                  <button data-load-scenario="${s.id}" class="flex-1 px-2.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 text-[11px] font-semibold transition">
+                    ${escapeHtml(t.btnLoadScenario)}
+                  </button>
+                  <button data-del-scenario="${s.id}" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-[11px] transition">
+                    ${escapeHtml(t.btnDelete)}
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          scenWrap.querySelectorAll('button[data-load-scenario]').forEach(btn => {
+            btn.addEventListener('click', () => loadScenarioById(Number(btn.dataset.loadScenario)));
+          });
+          scenWrap.querySelectorAll('button[data-del-scenario]').forEach(btn => {
+            btn.addEventListener('click', () => deleteScenarioById(Number(btn.dataset.delScenario)));
+          });
+        }
+
+        // 2. Audit Logs
+        const logsBody = $('logsTableBody');
+        if (!state.logs.length) {
+          logsBody.innerHTML = `<tr><td colspan="5" class="py-5 px-3 text-center text-slate-500">${escapeHtml(t.emptyLogs)}</td></tr>`;
+        } else {
+          logsBody.innerHTML = state.logs.map(log => {
+            const actionStyle = log.action === 'PATCHED'
+              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+              : log.action === 'REOPENED'
+              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+              : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40';
+            const delta = (log.risk_before !== null && log.risk_after !== null)
+              ? `<span class="font-mono-code">${Number(log.risk_before).toFixed(1)} → <span class="${log.risk_after < log.risk_before ? 'text-emerald-400 font-semibold' : log.risk_after > log.risk_before ? 'text-rose-400 font-semibold' : 'text-slate-300'}">${Number(log.risk_after).toFixed(1)}</span></span>`
+              : '—';
+            return `
+              <tr class="hover:bg-slate-900/60">
+                <td class="py-2 px-3 font-mono-code text-[11px] text-slate-400 whitespace-nowrap" dir="ltr">${escapeHtml(log.created_at)}</td>
+                <td class="py-2 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold border ${actionStyle}">${escapeHtml(log.action)}</span></td>
+                <td class="py-2 px-3 font-semibold text-white">${escapeHtml(log.vuln)}</td>
+                <td class="py-2 px-3">${delta}</td>
+                <td class="py-2 px-3 text-slate-400">${escapeHtml(log.note || '')}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        // 3. Search History
+        const histBody = $('historyTableBody');
+        if (!state.history.length) {
+          histBody.innerHTML = `<tr><td colspan="7" class="py-5 px-3 text-center text-slate-500">${escapeHtml(t.emptyHistory)}</td></tr>`;
+        } else {
+          histBody.innerHTML = state.history.map(h => {
+            const st = severityClasses(h.risk_severity);
+            return `
+              <tr class="hover:bg-slate-900/60">
+                <td class="py-2 px-3 font-mono-code text-[11px] text-slate-400 whitespace-nowrap" dir="ltr">${escapeHtml(h.created_at)}</td>
+                <td class="py-2 px-3 font-semibold text-cyan-300">${escapeHtml(ALGO_META[h.algo]?.name || h.algo)}</td>
+                <td class="py-2 px-3 font-mono-code text-slate-300">${escapeHtml(getShortNodeLabel(h.start_node))} → ${escapeHtml(getShortNodeLabel(h.goal_node))}</td>
+                <td class="py-2 px-2.5 text-end font-mono-code text-rose-300">${h.cost !== null ? h.cost : '—'}</td>
+                <td class="py-2 px-2.5 text-end">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-mono-code font-semibold border ${st.badge}">${Number(h.risk_score).toFixed(1)}</span>
+                </td>
+                <td class="py-2 px-3 font-mono-code text-[11px] text-slate-300" dir="ltr">${escapeHtml(h.cia_c[0])}/${escapeHtml(h.cia_i[0])}/${escapeHtml(h.cia_a[0])}</td>
+                <td class="py-2 px-2.5 text-end font-mono-code text-cyan-300">${h.expanded}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        $('inputScenarioName').placeholder = t.scenNamePlaceholder;
+        $('inputScenarioDesc').placeholder = t.scenDescPlaceholder;
+      }
+
+      async function refreshDbPanels() {
+        try {
+          const [health, scenData, logData, histData] = await Promise.all([
+            apiRequest('/api/health'),
+            apiRequest('/api/scenarios'),
+            apiRequest('/api/logs?limit=25'),
+            apiRequest('/api/history?limit=25')
+          ]);
+          state.scenarios = scenData.scenarios || [];
+          state.logs = logData.logs || [];
+          state.history = histData.history || [];
+          updateDbStatusBadge(health.database);
+          renderDbHub();
+        } catch (err) {
+          updateDbStatusBadge(null, true);
+        }
+      }
+
+      // =========================================================
+      // Backend-Powered Playback, Patching, Scenarios & Benchmark
+      // =========================================================
+      function stopAnimation() {
+        if (state.timerId) {
+          clearInterval(state.timerId);
+          state.timerId = null;
+        }
+      }
+
+      async function prepareSearch(saveRun = true, refreshDb = true) {
+        stopAnimation();
+        try {
+          const res = await apiRequest('/api/search', {
+            method: 'POST',
+            body: JSON.stringify({
+              algo: state.selectedAlgo,
+              start: state.startId,
+              goal: state.goalId,
+              dlsLimit: state.dlsLimit,
+              save: saveRun
+            })
+          });
+          state.finalResult = res;
+          state.steps = res.steps || [];
+          state.currentStepIdx = -1;
+          if (saveRun && refreshDb) await refreshDbPanels();
+          return true;
+        } catch (err) {
+          showToast(err.message);
+          return false;
+        }
+      }
+
+      async function runAnimatedSearch() {
+        if (!(await prepareSearch(true))) return;
+        if (!state.steps.length) {
+          renderGraph();
+          updateInspector();
+          return;
+        }
+        state.currentStepIdx = 0;
+        renderGraph();
+        updateInspector();
+        if (state.steps.length > 1) {
+          state.timerId = setInterval(() => {
+            if (state.currentStepIdx < state.steps.length - 1) {
+              state.currentStepIdx++;
+              renderGraph();
+              updateInspector();
+            } else {
+              stopAnimation();
+            }
+          }, state.speedMs);
+        }
+      }
+
+      async function stepForward() {
+        stopAnimation();
+        if (!state.finalResult || state.currentStepIdx >= state.steps.length - 1) {
+          if (!(await prepareSearch(true))) return;
+        }
+        if (state.steps.length > 0 && state.currentStepIdx < state.steps.length - 1) {
+          state.currentStepIdx++;
+        }
+        renderGraph();
+        updateInspector();
+      }
+
+      function resetSearch() {
+        stopAnimation();
+        state.steps = [];
+        state.currentStepIdx = -1;
+        state.finalResult = null;
+        renderGraph();
+        updateInspector();
+      }
+
+      function inspectEdge(edgeId, openTab = true) {
+        const edge = getEdgeMap()[edgeId];
+        if (!edge) return;
+        state.selectedEdgeId = edge.id;
+        if (openTab) switchTab('advisor');
+        renderGraph();
+        renderDefenseAdvisor();
+        const t = I18N[state.lang];
+        showToast(t.toastInspect(edge.vuln, edge.cvss, localizeSeverity(edge.severity)));
+      }
+
+      function onEdgeClick(edge) {
+        const now = Date.now();
+        const isDoubleClick = state.lastEdgeClick.id === edge.id && (now - state.lastEdgeClick.time) < 380;
+        state.lastEdgeClick = { id: edge.id, time: now };
+
+        if (state.clickMode === 'patch' || isDoubleClick) {
+          state.lastEdgeClick = { id: null, time: 0 };
+          state.selectedEdgeId = edge.id;
+          togglePatchEdge(edge);
+        } else {
+          inspectEdge(edge.id, true);
+        }
+      }
+
+      async function togglePatchEdge(edge) {
+        const t = I18N[state.lang];
+        state.selectedEdgeId = edge.id;
+        try {
+          const data = await apiRequest(`/api/edges/${encodeURIComponent(edge.id)}/patch`, {
+            method: 'PATCH',
+            body: JSON.stringify({ start: state.startId, goal: state.goalId })
+          });
+          state.patchedEdges = new Set(data.patchedEdges);
+          const idx = state.edges.findIndex(e => e.id === edge.id);
+          if (idx >= 0) state.edges[idx] = data.edge;
+
+          showToast(data.edge.isPatched
+            ? t.toastPatched(edge.vuln, getShortNodeLabel(edge.from), getShortNodeLabel(edge.to))
+            : t.toastReopened(edge.vuln, getShortNodeLabel(edge.from), getShortNodeLabel(edge.to)));
+
+          await Promise.all([
+            updateBenchmarkAll(),
+            prepareSearch(true, false)
+          ]);
+          await refreshDbPanels();
+          if (state.steps.length > 0) state.currentStepIdx = state.steps.length - 1;
+          renderGraph();
+          updateInspector();
+        } catch (err) {
+          showToast(err.message);
+        }
+      }
+
+      async function loadScenarioById(id) {
+        try {
+          const data = await apiRequest(`/api/scenarios/${id}/load`, { method: 'POST' });
+          const sc = data.scenario;
+          state.startId = sc.start_node;
+          state.goalId = sc.goal_node;
+          state.dlsLimit = sc.dls_limit;
+          state.patchedEdges = new Set(data.patchedEdges);
+          state.edges.forEach(e => { e.isPatched = state.patchedEdges.has(e.id); });
+
+          $('selectStart').value = state.startId;
+          $('selectGoal').value = state.goalId;
+          $('sliderDls').value = String(state.dlsLimit);
+          $('dlsValueLabel').textContent = `l = ${state.dlsLimit}`;
+          selectAlgorithm(sc.algo, false);
+
+          await Promise.all([
+            updateBenchmarkAll(),
+            prepareSearch(true, false)
+          ]);
+          await refreshDbPanels();
+          if (state.steps.length > 0) state.currentStepIdx = state.steps.length - 1;
+          renderGraph();
+          updateInspector();
+          showToast(I18N[state.lang].toastScenarioLoaded(sc.name));
+        } catch (err) {
+          showToast(err.message);
+        }
+      }
+
+      async function deleteScenarioById(id) {
+        try {
+          await apiRequest(`/api/scenarios/${id}`, { method: 'DELETE' });
+          showToast(I18N[state.lang].toastScenarioDeleted);
+          await refreshDbPanels();
+        } catch (err) {
+          showToast(err.message);
+        }
+      }
+
+      async function updateBenchmarkAll() {
+        try {
+          const data = await apiRequest('/api/benchmark', {
+            method: 'POST',
+            body: JSON.stringify({
+              start: state.startId,
+              goal: state.goalId,
+              dlsLimit: state.dlsLimit
+            })
+          });
+          const results = data.results || [];
+          const minCost = results.filter(r => r.found).reduce((m, r) => Math.min(m, r.cost), Infinity);
+          const tbody = $('benchmarkTableBody');
+          const t = I18N[state.lang];
+
+          tbody.innerHTML = results.map(r => {
+            const meta = ALGO_META[r.algo];
+            const isOptimal = r.found && r.cost === minCost;
+            const isSelected = r.algo === state.selectedAlgo;
+            const rowClass = isSelected ? 'bg-cyan-500/10' : 'hover:bg-slate-900/80';
+            const typeLabel = meta.type === 'Uninformed' ? t.uninformed : t.informed;
+            const statusLabel = formatStatusText(r);
+
+            const statusBadge = r.found
+              ? (isOptimal
+                  ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">${escapeHtml(t.optimal)}</span>`
+                  : `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">${escapeHtml(statusLabel)}</span>`)
+              : `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">${escapeHtml(statusLabel)}</span>`;
+
+            const riskStyle = severityClasses(r.riskSeverity);
+            const riskCell = r.found
+              ? `<span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono-code font-semibold border ${riskStyle.badge}">${r.riskScore.toFixed(1)}</span>`
+              : `<span class="text-emerald-400 font-mono-code text-[11px]">0.0</span>`;
+
+            return `
+              <tr class="${rowClass} transition cursor-pointer" data-bench-algo="${r.algo}">
+                <td class="py-2.5 px-3 font-semibold text-white">${escapeHtml(meta.name)}</td>
+                <td class="py-2.5 px-3 text-slate-400">${escapeHtml(typeLabel)}</td>
+                <td class="py-2.5 px-3">${statusBadge}</td>
+                <td class="py-2.5 px-2.5 text-end font-mono-code text-slate-200">${r.hops !== null ? r.hops : '—'}</td>
+                <td class="py-2.5 px-2.5 text-end font-mono-code font-semibold ${isOptimal ? 'text-emerald-400' : 'text-rose-300'}">${r.cost !== null ? r.cost : '—'}</td>
+                <td class="py-2.5 px-2.5 text-end">${riskCell}</td>
+                <td class="py-2.5 px-2.5 text-end font-mono-code text-cyan-300">${r.expanded}</td>
+                <td class="py-2.5 px-2.5 text-end font-mono-code text-amber-300">${r.maxFrontier}</td>
+              </tr>
+            `;
+          }).join('');
+
+          tbody.querySelectorAll('tr[data-bench-algo]').forEach(row => {
+            row.addEventListener('click', () => {
+              selectAlgorithm(row.getAttribute('data-bench-algo'), false);
+              runAnimatedSearch();
+            });
+          });
+
+          renderChart(results);
+        } catch (err) {
+          showToast(err.message);
+        }
+      }
+
+      function renderChart(results) {
+        if (!window.Chart) return;
+        const ctx = $('benchmarkChart').getContext('2d');
+        const labels = results.map(r => ALGO_META[r.algo].name.replace(' Best-First', '').replace(' Search', ''));
+        const costData = results.map(r => r.cost !== null ? r.cost : 0);
+        const expandedData = results.map(r => r.expanded);
+
+        if (state.chartInstance) state.chartInstance.destroy();
+        state.chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              { label: I18N[state.lang].chartCost, data: costData, backgroundColor: 'rgba(244, 63, 94, 0.78)', borderColor: '#f43f5e', borderWidth: 1, borderRadius: 6 },
+              { label: I18N[state.lang].chartExpanded, data: expandedData, backgroundColor: 'rgba(34, 211, 238, 0.72)', borderColor: '#22d3ee', borderWidth: 1, borderRadius: 6 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 11, family: 'Inter, Noto Sans Arabic' } } } },
+            scales: {
+              x: { ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { color: 'rgba(51, 65, 85, 0.35)' } },
+              y: { beginAtZero: true, ticks: { color: '#94a3b8', font: { size: 11 }, stepSize: 2 }, grid: { color: 'rgba(51, 65, 85, 0.35)' } }
+            }
+          }
+        });
+      }
+
+      function setClickMode(mode) {
+        state.clickMode = mode;
+        const isInspect = mode === 'inspect';
+        $('modeInspect').className = isInspect
+          ? 'px-2 py-1 rounded-md font-semibold transition bg-indigo-500/25 text-indigo-200 border border-indigo-400/40'
+          : 'px-2 py-1 rounded-md font-semibold transition text-slate-400 hover:text-slate-200 border border-transparent';
+        $('modePatch').className = !isInspect
+          ? 'px-2 py-1 rounded-md font-semibold transition bg-emerald-500/25 text-emerald-200 border border-emerald-400/40'
+          : 'px-2 py-1 rounded-md font-semibold transition text-slate-400 hover:text-slate-200 border border-transparent';
+      }
+
+      function populateHostDropdowns() {
+        const startSel = $('selectStart');
+        const goalSel = $('selectGoal');
+        const prevStart = state.startId;
+        const prevGoal = state.goalId;
+        startSel.innerHTML = '';
+        goalSel.innerHTML = '';
+        state.nodes.forEach(n => {
+          const text = state.lang === 'ku'
+            ? `${n.label} — ${n.kuLabel} (${n.kuRole})`
+            : `${n.label} (${n.role})`;
+          startSel.add(new Option(text, n.id));
+          goalSel.add(new Option(text, n.id));
+        });
+        startSel.value = prevStart;
+        goalSel.value = prevGoal;
+      }
+
+      function applyLanguage(lang) {
+        state.lang = lang;
+        const t = I18N[lang];
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === 'ku' ? 'rtl' : 'ltr';
+        $('langToggleLabel').textContent = t.langBtn;
+
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+          const key = el.getAttribute('data-i18n');
+          if (t[key] !== undefined && typeof t[key] === 'string') {
+            if (key === 'graphHint') el.innerHTML = t[key];
+            else el.textContent = t[key];
+          }
+        });
+
+        if (state.dbStats) updateDbStatusBadge(state.dbStats);
+        populateHostDropdowns();
+        renderGraph();
+        updateInspector();
+        renderDbHub();
+        updateBenchmarkAll();
+      }
+
+      function selectAlgorithm(algo, runBench = true) {
+        state.selectedAlgo = algo;
+        document.querySelectorAll('.algo-btn').forEach(btn => {
+          const active = btn.getAttribute('data-algo') === algo;
+          btn.className = active
+            ? 'algo-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition border bg-cyan-500/20 text-cyan-300 border-cyan-400 shadow-sm shadow-cyan-500/20'
+            : 'algo-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition border bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500';
+        });
+        $('dlsControlWrap').classList.toggle('opacity-45', algo !== 'DLS');
+        if (runBench) updateBenchmarkAll();
+      }
+
+      async function initApp() {
+        try {
+          const graph = await apiRequest('/api/graph');
+          state.nodes = graph.nodes;
+          state.edges = graph.edges;
+          state.patchedEdges = new Set(graph.patchedEdges || []);
+        } catch (err) {
+          updateDbStatusBadge(null, true);
+          showToast(I18N[state.lang].dbOffline);
+          return;
+        }
+
+        populateHostDropdowns();
+
+        $('selectStart').addEventListener('change', e => {
+          state.startId = e.target.value;
+          resetSearch();
+          updateBenchmarkAll();
+        });
+        $('selectGoal').addEventListener('change', e => {
+          state.goalId = e.target.value;
+          resetSearch();
+          updateBenchmarkAll();
+        });
+
+        document.querySelectorAll('.algo-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            selectAlgorithm(btn.getAttribute('data-algo'));
+            resetSearch();
+          });
+        });
+
+        $('sliderDls').addEventListener('input', e => {
+          state.dlsLimit = Number(e.target.value);
+          $('dlsValueLabel').textContent = `l = ${state.dlsLimit}`;
+          updateBenchmarkAll();
+        });
+        $('sliderSpeed').addEventListener('input', e => {
+          state.speedMs = Number(e.target.value);
+          $('speedValueLabel').textContent = `${state.speedMs} ms`;
+        });
+
+        $('btnRun').addEventListener('click', runAnimatedSearch);
+        $('btnStep').addEventListener('click', stepForward);
+        $('btnReset').addEventListener('click', resetSearch);
+
+        $('modeInspect').addEventListener('click', () => {
+          setClickMode('inspect');
+          showToast(I18N[state.lang].toastModeInspect);
+        });
+        $('modePatch').addEventListener('click', () => {
+          setClickMode('patch');
+          showToast(I18N[state.lang].toastModePatch);
+        });
+
+        $('btnLangToggle').addEventListener('click', () => {
+          applyLanguage(state.lang === 'en' ? 'ku' : 'en');
+        });
+        $('btnCompareAll').addEventListener('click', async () => {
+          await updateBenchmarkAll();
+          showToast(I18N[state.lang].toastCompare);
+        });
+        $('btnRestoreEdges').addEventListener('click', async () => {
+          try {
+            await apiRequest('/api/edges/restore', {
+              method: 'POST',
+              body: JSON.stringify({ start: state.startId, goal: state.goalId })
+            });
+            state.patchedEdges.clear();
+            state.edges.forEach(e => { e.isPatched = false; });
+            showToast(I18N[state.lang].toastRestore);
+            await Promise.all([
+              updateBenchmarkAll(),
+              prepareSearch(true),
+              refreshDbPanels()
+            ]);
+            if (state.steps.length > 0) state.currentStepIdx = state.steps.length - 1;
+            renderGraph();
+            updateInspector();
+          } catch (err) {
+            showToast(err.message);
+          }
+        });
+
+        $('tabTrace').addEventListener('click', () => switchTab('trace'));
+        $('tabAdvisor').addEventListener('click', () => switchTab('advisor'));
+        $('tabFormulation').addEventListener('click', () => switchTab('formulation'));
+
+        $('dbTabScenarios').addEventListener('click', () => switchDbTab('scenarios'));
+        $('dbTabLogs').addEventListener('click', () => switchDbTab('logs'));
+        $('dbTabHistory').addEventListener('click', () => switchDbTab('history'));
+
+        $('selectEdgeAdvisor').addEventListener('change', e => {
+          state.selectedEdgeId = e.target.value;
+          renderGraph();
+          renderDefenseAdvisor();
+        });
+
+        $('scenarioForm').addEventListener('submit', async ev => {
+          ev.preventDefault();
+          const name = $('inputScenarioName').value.trim();
+          const description = $('inputScenarioDesc').value.trim();
+          if (!name) return;
+          try {
+            await apiRequest('/api/scenarios', {
+              method: 'POST',
+              body: JSON.stringify({
+                name,
+                description,
+                start: state.startId,
+                goal: state.goalId,
+                algo: state.selectedAlgo,
+                dlsLimit: state.dlsLimit
+              })
+            });
+            $('inputScenarioName').value = '';
+            $('inputScenarioDesc').value = '';
+            showToast(I18N[state.lang].toastScenarioSaved(name));
+            await refreshDbPanels();
+          } catch (err) {
+            showToast(err.message);
+          }
+        });
+
+        $('btnClearHistory').addEventListener('click', async () => {
+          try {
+            await apiRequest('/api/history', { method: 'DELETE' });
+            showToast(I18N[state.lang].toastHistoryCleared);
+            await refreshDbPanels();
+          } catch (err) {
+            showToast(err.message);
+          }
+        });
+
+        if (window.lucide) window.lucide.createIcons();
+
+        selectAlgorithm('ASTAR', false);
+        setClickMode('inspect');
+        switchTab('trace');
+        switchDbTab('scenarios');
+
+        await Promise.all([
+          prepareSearch(false),
+          updateBenchmarkAll(),
+          refreshDbPanels()
+        ]);
+        if (state.steps.length > 0) state.currentStepIdx = state.steps.length - 1;
+        renderGraph();
+        updateInspector();
+      }
+
+      window.addEventListener('DOMContentLoaded', initApp);
+    })();
+  </script>
+</body>
+</html>
