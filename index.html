@@ -386,82 +386,37 @@
       </div>
     </section>
 
-    <!-- Bottom Section 2: SQLite Database Hub (Scenarios, Mitigation Audit Logs, Search History) -->
+    <!-- Bottom Section 2: Search History (SQLite Persistence) -->
     <section class="glass-card rounded-2xl p-4 sm:p-5 space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
-            <i data-lucide="database" class="w-4 h-4 text-indigo-400"></i>
-            <span data-i18n="dbHubTitle">Security Operations Database (SQLite Persistence)</span>
+            <i data-lucide="history" class="w-4 h-4 text-indigo-400"></i>
+            <span data-i18n="searchHistTitle">Search History</span>
           </h2>
-          <p data-i18n="dbHubSub" class="text-xs text-slate-400">Persist defense scenarios, inspect timestamped mitigation audit logs, and track historical attack-path runs.</p>
+          <p data-i18n="searchHistSub" class="text-xs text-slate-400">Historical attack-path runs persisted in SQLite.</p>
         </div>
-        <div class="flex flex-wrap items-center gap-1.5" role="tablist">
-          <button id="dbTabScenarios" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/20 text-indigo-200 border border-indigo-400/40" data-i18n="dbTabScenarios">Saved Scenarios</button>
-          <button id="dbTabLogs" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent" data-i18n="dbTabLogs">Mitigation Audit Log</button>
-          <button id="dbTabHistory" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent" data-i18n="dbTabHistory">Search History</button>
-        </div>
+        <button id="btnClearHistory" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-xs font-medium transition">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span data-i18n="btnClearHistory">Clear History</span>
+        </button>
       </div>
 
-      <!-- DB Tab 1: Saved Scenarios -->
-      <div id="dbPanelScenarios" class="space-y-3">
-        <form id="scenarioForm" class="grid grid-cols-1 md:grid-cols-12 gap-2.5 bg-slate-900/80 border border-slate-800 rounded-xl p-3">
-          <div class="md:col-span-4">
-            <input id="inputScenarioName" type="text" maxlength="80" required placeholder="Scenario name (e.g., DMZ Hardening)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-400" />
-          </div>
-          <div class="md:col-span-5">
-            <input id="inputScenarioDesc" type="text" maxlength="240" placeholder="Optional defense notes..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-400" />
-          </div>
-          <div class="md:col-span-3">
-            <button type="submit" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-semibold text-xs transition">
-              <i data-lucide="save" class="w-3.5 h-3.5"></i>
-              <span data-i18n="btnSaveScenario">Save Current State</span>
-            </button>
-          </div>
-        </form>
-        <div id="scenariosList" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
-      </div>
-
-      <!-- DB Tab 2: Mitigation Audit Logs -->
-      <div id="dbPanelLogs" class="hidden overflow-x-auto rounded-xl border border-slate-800">
+      <div class="overflow-x-auto rounded-xl border border-slate-800">
         <table class="w-full text-start border-collapse text-xs">
           <thead>
             <tr class="bg-slate-900/95 text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-800">
               <th data-i18n="thLogTime" class="py-2 px-3 text-start">Timestamp (UTC)</th>
-              <th data-i18n="thLogAction" class="py-2 px-3 text-start">Action</th>
-              <th data-i18n="thLogTarget" class="py-2 px-3 text-start">Vulnerability / Target</th>
-              <th data-i18n="thLogRiskDelta" class="py-2 px-3 text-start">Risk Before → After</th>
-              <th data-i18n="thLogNote" class="py-2 px-3 text-start">Details</th>
+              <th data-i18n="thAlgo" class="py-2 px-3 text-start">Algorithm</th>
+              <th data-i18n="thHistRoute" class="py-2 px-3 text-start">Start → Goal</th>
+              <th data-i18n="thCost" class="py-2 px-2.5 text-end">Cost g(n)</th>
+              <th data-i18n="thRisk" class="py-2 px-2.5 text-end">Risk (CVSS)</th>
+              <th data-i18n="thHistCia" class="py-2 px-3 text-start">CIA (C/I/A)</th>
+              <th data-i18n="thExpanded" class="py-2 px-2.5 text-end">Expanded</th>
             </tr>
           </thead>
-          <tbody id="logsTableBody" class="divide-y divide-slate-800/70 bg-slate-950/60"></tbody>
+          <tbody id="historyTableBody" class="divide-y divide-slate-800/70 bg-slate-950/60"></tbody>
         </table>
-      </div>
-
-      <!-- DB Tab 3: Search Run History -->
-      <div id="dbPanelHistory" class="hidden space-y-2.5">
-        <div class="flex justify-end">
-          <button id="btnClearHistory" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-xs transition">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            <span data-i18n="btnClearHistory">Clear History</span>
-          </button>
-        </div>
-        <div class="overflow-x-auto rounded-xl border border-slate-800">
-          <table class="w-full text-start border-collapse text-xs">
-            <thead>
-              <tr class="bg-slate-900/95 text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-800">
-                <th data-i18n="thLogTime" class="py-2 px-3 text-start">Timestamp (UTC)</th>
-                <th data-i18n="thAlgo" class="py-2 px-3 text-start">Algorithm</th>
-                <th data-i18n="thHistRoute" class="py-2 px-3 text-start">Start → Goal</th>
-                <th data-i18n="thCost" class="py-2 px-2.5 text-end">Cost g(n)</th>
-                <th data-i18n="thRisk" class="py-2 px-2.5 text-end">Risk (CVSS)</th>
-                <th data-i18n="thHistCia" class="py-2 px-3 text-start">CIA (C/I/A)</th>
-                <th data-i18n="thExpanded" class="py-2 px-2.5 text-end">Expanded</th>
-              </tr>
-            </thead>
-            <tbody id="historyTableBody" class="divide-y divide-slate-800/70 bg-slate-950/60"></tbody>
-          </table>
-        </div>
       </div>
     </section>
   </main>
@@ -482,7 +437,7 @@
           langBtn: 'کوردی',
           editionBadge: 'InfoSec Edition',
           dbConnecting: 'Connecting DB...',
-          dbConnected: s => `SQLite DB · ${s.edges} Edges · ${s.scenarios} Scenarios`,
+          dbConnected: s => `SQLite DB · ${s.edges} Edges · ${s.searchRuns} Runs`,
           dbOffline: 'Backend Offline',
           appSubtitleTitle: '— Attack-Path Discovery Analyzer',
           appSubtitle: 'Full-Stack Flask + SQLite · CVSS v3.1, CIA Triad & Defense-in-Depth Mitigation Advisor',
@@ -554,28 +509,13 @@
           thRisk: 'Risk (CVSS)',
           thExpanded: 'Expanded',
           thSpace: 'Max Space',
-          dbHubTitle: 'Security Operations Database (SQLite Persistence)',
-          dbHubSub: 'Persist defense scenarios, inspect timestamped mitigation audit logs, and track historical attack-path runs.',
-          dbTabScenarios: 'Saved Scenarios',
-          dbTabLogs: 'Mitigation Audit Log',
-          dbTabHistory: 'Search History',
-          btnSaveScenario: 'Save Current State',
-          btnLoadScenario: 'Load Scenario',
-          btnDelete: 'Delete',
+          searchHistTitle: 'Search History',
+          searchHistSub: 'Historical attack-path runs persisted in SQLite.',
           btnClearHistory: 'Clear History',
           thLogTime: 'Timestamp (UTC)',
-          thLogAction: 'Action',
-          thLogTarget: 'Vulnerability / Target',
-          thLogRiskDelta: 'Risk Before → After',
-          thLogNote: 'Details',
           thHistRoute: 'Start → Goal',
           thHistCia: 'CIA (C/I/A)',
-          scenNamePlaceholder: 'Scenario name (e.g., DMZ Hardening)',
-          scenDescPlaceholder: 'Optional defense notes...',
-          scenPatchedLabel: n => `${n} patched`,
-          emptyLogs: 'No mitigation audit logs yet. Patch an edge or load a scenario to record an entry.',
           emptyHistory: 'No search history recorded yet.',
-          emptyScenarios: 'No saved defense scenarios yet.',
           formStateTitle: 'State Space',
           formStateDesc: '10 interconnected enterprise hosts stored in SQLite from external Internet to Core Database.',
           formActionTitle: 'Actions & Transition Model',
@@ -612,9 +552,6 @@
           toastInspect: (vuln, cvss, sev) => `Inspecting ${vuln} — CVSS ${cvss.toFixed(1)} (${sev})`,
           toastModeInspect: 'Click Mode: Inspect vulnerability details in Defense Advisor (Double-click edge for quick patch).',
           toastModePatch: 'Click Mode: Quick Patch — clicking any edge immediately patches/unpatches it in SQLite.',
-          toastScenarioSaved: name => `Saved scenario "${name}" to SQLite database.`,
-          toastScenarioLoaded: name => `Loaded scenario "${name}" and replanned attack paths.`,
-          toastScenarioDeleted: 'Scenario deleted from SQLite database.',
           toastHistoryCleared: 'Search run history cleared from database.',
           clickToInspectHint: 'Click hop to inspect:',
           safeLabel: 'SAFE',
@@ -626,7 +563,7 @@
           langBtn: 'English',
           editionBadge: 'وەشانی ئاسایشی زانیاری',
           dbConnecting: 'پەیوەستبوون بە داتابەیس...',
-          dbConnected: s => `داتابەیسی SQLite · ${s.edges} کەلێن · ${s.scenarios} سیناریۆ`,
+          dbConnected: s => `داتابەیسی SQLite · ${s.edges} کەلێن · ${s.searchRuns} گەڕان`,
           dbOffline: 'سێرڤەری باکئێند ناچالاکە',
           appSubtitleTitle: '— شیکەرەوەی ڕێڕەوی هێرشی سایبەری',
           appSubtitle: 'باکئێندی Flask + داتابەیسی SQLite · نمرەی CVSS v3.1، سێگۆشەی CIA و ڕاوێژکاری بەرگری',
@@ -698,28 +635,13 @@
           thRisk: 'مەترسی (CVSS)',
           thExpanded: 'سەردانکراو',
           thSpace: 'میمۆری',
-          dbHubTitle: 'داتابەیسی ئۆپەراسیۆنی ئاسایش (SQLite Persistence)',
-          dbHubSub: 'سیناریۆکانی بەرگری خەزن بکە، تۆماری وردبینیی چارەسەرەکان ببینە و مێژووی گەڕانەکان بەدواداچوون بکە.',
-          dbTabScenarios: 'سیناریۆ خەزنکراوەکان',
-          dbTabLogs: 'تۆماری وردبینیی بەرگری',
-          dbTabHistory: 'مێژووی گەڕانەکان',
-          btnSaveScenario: 'خەزنکردنی دۆخی ئێستا',
-          btnLoadScenario: 'بارکردنی سیناریۆ',
-          btnDelete: 'سڕینەوە',
+          searchHistTitle: 'مێژووی گەڕانەکان',
+          searchHistSub: 'تۆماری گەڕانەکانی ڕێڕەوی هێرش لە داتابەیسی SQLite.',
           btnClearHistory: 'سڕینەوەی مێژوو',
           thLogTime: 'کات (UTC)',
-          thLogAction: 'کردار',
-          thLogTarget: 'کەلێن / ئامانج',
-          thLogRiskDelta: 'مەترسی پێش ← پاش',
-          thLogNote: 'وردەکاری',
           thHistRoute: 'دەستپێک ← ئامانج',
           thHistCia: 'CIA (C/I/A)',
-          scenNamePlaceholder: 'ناوی سیناریۆ (بۆ نموونە: توندکردنەوەی DMZ)',
-          scenDescPlaceholder: 'تێبینیی ئاسایش (ئارەزوومەندانە)...',
-          scenPatchedLabel: n => `${n} چارەسەرکراو`,
-          emptyLogs: 'هێشتا هیچ تۆمارێکی بەرگری نییە. کەلێنێک دابخە یان سیناریۆیەک بار بکە.',
           emptyHistory: 'هێشتا هیچ مێژوویەکی گەڕان تۆمار نەکراوە.',
-          emptyScenarios: 'هیچ سیناریۆیەکی خەزنکراو نییە.',
           formStateTitle: 'بۆشایی دۆخەکان (State Space)',
           formStateDesc: '١٠ ئامێر و سێرڤەری پێکەوەبەستراوی نێتۆرک لە SQLite لە ئەنتەرنێتەوە تا داتابەیسی سەرەکی.',
           formActionTitle: 'کردارەکان و گواستنەوە (Actions & Transition)',
@@ -756,9 +678,6 @@
           toastInspect: (vuln, cvss, sev) => `پشکنینی ${vuln} — CVSS ${cvss.toFixed(1)} (${sev})`,
           toastModeInspect: 'دۆخی کلیک: پشکنین لە ڕاوێژکاری بەرگری (دەبڵ-کلیک بۆ داخستنی خێرا).',
           toastModePatch: 'دۆخی کلیک: داخستنی خێرا — کلیک لەسەر هەر هێڵێک یەکسەر لە SQLite دایدەخات یان دەیکاتەوە.',
-          toastScenarioSaved: name => `سیناریۆی "${name}" لە داتابەیسی SQLite خەزنکرا.`,
-          toastScenarioLoaded: name => `سیناریۆی "${name}" بارکرا و ڕێڕەوی هێرش نوێکرایەوە.`,
-          toastScenarioDeleted: 'سیناریۆکە لە داتابەیسی SQLite سڕایەوە.',
           toastHistoryCleared: 'مێژووی گەڕانەکان لە داتابەیس سڕایەوە.',
           clickToInspectHint: 'کلیک بکە بۆ پشکنینی هەنگاوەکان:',
           safeLabel: 'پارێزراو',
@@ -777,7 +696,6 @@
         speedMs: 650,
         clickMode: 'inspect',
         activeTab: 'trace',
-        activeDbTab: 'scenarios',
         selectedEdgeId: 'e16',
         nodes: [],
         edges: [],
@@ -788,8 +706,6 @@
         timerId: null,
         chartInstance: null,
         dbStats: null,
-        scenarios: [],
-        logs: [],
         history: [],
         lastEdgeClick: { id: null, time: 0 }
       };
@@ -968,7 +884,6 @@
           const isOnPath = !isPatched && pathEdgeSet.has(`${edge.from}->${edge.to}`);
           const isExplored = !isPatched && !isOnPath && visitedSet.has(edge.from) && visitedSet.has(edge.to);
           const isSelected = edge.id === state.selectedEdgeId;
-          const sevStyle = severityClasses(edge.severity);
           const geom = computeEdgeGeometry(edge);
 
           const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -1017,39 +932,6 @@
           lineEl.setAttribute('stroke-width', width);
           lineEl.setAttribute('marker-end', marker);
           g.appendChild(lineEl);
-
-          const pillW = isPatched ? 48 : 60;
-          const pillH = 19;
-          const pill = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-          pill.setAttribute('x', geom.mx - pillW / 2);
-          pill.setAttribute('y', geom.my - pillH / 2);
-          pill.setAttribute('width', String(pillW));
-          pill.setAttribute('height', String(pillH));
-          pill.setAttribute('rx', '9.5');
-          pill.setAttribute('fill', isPatched ? '#064e3b' : (isOnPath ? '#4c0519' : (isSelected ? '#1e1b4b' : '#0f172a')));
-          pill.setAttribute('stroke', isSelected ? '#818cf8' : (isPatched ? '#10b981' : (isOnPath ? '#f43f5e' : '#334155')));
-          pill.setAttribute('stroke-width', isSelected ? '1.8' : '1');
-          g.appendChild(pill);
-
-          if (!isPatched) {
-            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            dot.setAttribute('cx', geom.mx - pillW / 2 + 8);
-            dot.setAttribute('cy', geom.my);
-            dot.setAttribute('r', '3');
-            dot.setAttribute('fill', sevStyle.dot);
-            g.appendChild(dot);
-          }
-
-          const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          txt.setAttribute('x', isPatched ? geom.mx : geom.mx + 4);
-          txt.setAttribute('y', geom.my + 3.4);
-          txt.setAttribute('text-anchor', 'middle');
-          txt.setAttribute('font-size', '9.5');
-          txt.setAttribute('font-weight', '600');
-          txt.setAttribute('font-family', 'JetBrains Mono, monospace');
-          txt.setAttribute('fill', isPatched ? '#6ee7b7' : (isOnPath ? '#fecdd3' : '#e2e8f0'));
-          txt.textContent = isPatched ? t.safeLabel : `${edge.cost}·${edge.cvss.toFixed(1)}`;
-          g.appendChild(txt);
 
           const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
           title.textContent = `${a.label} → ${b.label} | ${edge.vuln} | CVSS ${edge.cvss.toFixed(1)} (${edge.severity}) | CIA: C:${edge.cia.c[0]} I:${edge.cia.i[0]} A:${edge.cia.a[0]} | Cost g=${edge.cost}`;
@@ -1156,21 +1038,6 @@
           item.btn.className = active
             ? 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 inline-flex items-center gap-1'
             : 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent inline-flex items-center gap-1';
-        });
-      }
-
-      function switchDbTab(tabName) {
-        state.activeDbTab = tabName;
-        [
-          { key: 'scenarios', btn: $('dbTabScenarios'), panel: $('dbPanelScenarios') },
-          { key: 'logs', btn: $('dbTabLogs'), panel: $('dbPanelLogs') },
-          { key: 'history', btn: $('dbTabHistory'), panel: $('dbPanelHistory') }
-        ].forEach(item => {
-          const active = item.key === tabName;
-          item.panel.classList.toggle('hidden', !active);
-          item.btn.className = active
-            ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/20 text-indigo-200 border border-indigo-400/40'
-            : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent';
         });
       }
 
@@ -1476,83 +1343,10 @@
       }
 
       // =========================================================
-      // Database Hub Rendering (Scenarios, Audit Logs, Search History)
+      // Search History Rendering (SQLite Persistence)
       // =========================================================
       function renderDbHub() {
         const t = I18N[state.lang];
-
-        // 1. Scenarios
-        const scenWrap = $('scenariosList');
-        if (!state.scenarios.length) {
-          scenWrap.innerHTML = `<div class="md:col-span-3 text-xs text-slate-500 py-4 text-center">${escapeHtml(t.emptyScenarios)}</div>`;
-        } else {
-          scenWrap.innerHTML = state.scenarios.map(s => {
-            const st = severityClasses(s.risk_severity);
-            return `
-              <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3 flex flex-col justify-between gap-2.5">
-                <div class="space-y-1">
-                  <div class="flex items-start justify-between gap-2">
-                    <h3 class="text-xs font-bold text-white leading-snug">${escapeHtml(s.name)}</h3>
-                    <span class="shrink-0 font-mono-code text-[10px] font-semibold px-2 py-0.5 rounded-full border ${st.badge}">
-                      ${Number(s.risk_score).toFixed(1)} · ${escapeHtml(localizeSeverity(s.risk_severity))}
-                    </span>
-                  </div>
-                  ${s.description ? `<p class="text-[11px] text-slate-400 leading-relaxed">${escapeHtml(s.description)}</p>` : ''}
-                  <div class="flex flex-wrap items-center gap-2 pt-1 text-[10px] font-mono-code text-slate-400">
-                    <span>${escapeHtml(s.algo)}</span>
-                    <span>•</span>
-                    <span>${escapeHtml(getShortNodeLabel(s.start_node))} → ${escapeHtml(getShortNodeLabel(s.goal_node))}</span>
-                    <span>•</span>
-                    <span class="text-emerald-400">${escapeHtml(t.scenPatchedLabel(s.patchedEdges.length))}</span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 pt-2 border-t border-slate-800/80">
-                  <button data-load-scenario="${s.id}" class="flex-1 px-2.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 text-[11px] font-semibold transition">
-                    ${escapeHtml(t.btnLoadScenario)}
-                  </button>
-                  <button data-del-scenario="${s.id}" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-[11px] transition">
-                    ${escapeHtml(t.btnDelete)}
-                  </button>
-                </div>
-              </div>
-            `;
-          }).join('');
-
-          scenWrap.querySelectorAll('button[data-load-scenario]').forEach(btn => {
-            btn.addEventListener('click', () => loadScenarioById(Number(btn.dataset.loadScenario)));
-          });
-          scenWrap.querySelectorAll('button[data-del-scenario]').forEach(btn => {
-            btn.addEventListener('click', () => deleteScenarioById(Number(btn.dataset.delScenario)));
-          });
-        }
-
-        // 2. Audit Logs
-        const logsBody = $('logsTableBody');
-        if (!state.logs.length) {
-          logsBody.innerHTML = `<tr><td colspan="5" class="py-5 px-3 text-center text-slate-500">${escapeHtml(t.emptyLogs)}</td></tr>`;
-        } else {
-          logsBody.innerHTML = state.logs.map(log => {
-            const actionStyle = log.action === 'PATCHED'
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-              : log.action === 'REOPENED'
-              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-              : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40';
-            const delta = (log.risk_before !== null && log.risk_after !== null)
-              ? `<span class="font-mono-code">${Number(log.risk_before).toFixed(1)} → <span class="${log.risk_after < log.risk_before ? 'text-emerald-400 font-semibold' : log.risk_after > log.risk_before ? 'text-rose-400 font-semibold' : 'text-slate-300'}">${Number(log.risk_after).toFixed(1)}</span></span>`
-              : '—';
-            return `
-              <tr class="hover:bg-slate-900/60">
-                <td class="py-2 px-3 font-mono-code text-[11px] text-slate-400 whitespace-nowrap" dir="ltr">${escapeHtml(log.created_at)}</td>
-                <td class="py-2 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold border ${actionStyle}">${escapeHtml(log.action)}</span></td>
-                <td class="py-2 px-3 font-semibold text-white">${escapeHtml(log.vuln)}</td>
-                <td class="py-2 px-3">${delta}</td>
-                <td class="py-2 px-3 text-slate-400">${escapeHtml(log.note || '')}</td>
-              </tr>
-            `;
-          }).join('');
-        }
-
-        // 3. Search History
         const histBody = $('historyTableBody');
         if (!state.history.length) {
           histBody.innerHTML = `<tr><td colspan="7" class="py-5 px-3 text-center text-slate-500">${escapeHtml(t.emptyHistory)}</td></tr>`;
@@ -1574,21 +1368,14 @@
             `;
           }).join('');
         }
-
-        $('inputScenarioName').placeholder = t.scenNamePlaceholder;
-        $('inputScenarioDesc').placeholder = t.scenDescPlaceholder;
       }
 
       async function refreshDbPanels() {
         try {
-          const [health, scenData, logData, histData] = await Promise.all([
+          const [health, histData] = await Promise.all([
             apiRequest('/api/health'),
-            apiRequest('/api/scenarios'),
-            apiRequest('/api/logs?limit=25'),
             apiRequest('/api/history?limit=25')
           ]);
-          state.scenarios = scenData.scenarios || [];
-          state.logs = logData.logs || [];
           state.history = histData.history || [];
           updateDbStatusBadge(health.database);
           renderDbHub();
@@ -1724,46 +1511,6 @@
           if (state.steps.length > 0) state.currentStepIdx = state.steps.length - 1;
           renderGraph();
           updateInspector();
-        } catch (err) {
-          showToast(err.message);
-        }
-      }
-
-      async function loadScenarioById(id) {
-        try {
-          const data = await apiRequest(`/api/scenarios/${id}/load`, { method: 'POST' });
-          const sc = data.scenario;
-          state.startId = sc.start_node;
-          state.goalId = sc.goal_node;
-          state.dlsLimit = sc.dls_limit;
-          state.patchedEdges = new Set(data.patchedEdges);
-          state.edges.forEach(e => { e.isPatched = state.patchedEdges.has(e.id); });
-
-          $('selectStart').value = state.startId;
-          $('selectGoal').value = state.goalId;
-          $('sliderDls').value = String(state.dlsLimit);
-          $('dlsValueLabel').textContent = `l = ${state.dlsLimit}`;
-          selectAlgorithm(sc.algo, false);
-
-          await Promise.all([
-            updateBenchmarkAll(),
-            prepareSearch(true, false)
-          ]);
-          await refreshDbPanels();
-          if (state.steps.length > 0) state.currentStepIdx = state.steps.length - 1;
-          renderGraph();
-          updateInspector();
-          showToast(I18N[state.lang].toastScenarioLoaded(sc.name));
-        } catch (err) {
-          showToast(err.message);
-        }
-      }
-
-      async function deleteScenarioById(id) {
-        try {
-          await apiRequest(`/api/scenarios/${id}`, { method: 'DELETE' });
-          showToast(I18N[state.lang].toastScenarioDeleted);
-          await refreshDbPanels();
         } catch (err) {
           showToast(err.message);
         }
@@ -2011,40 +1758,10 @@
         $('tabAdvisor').addEventListener('click', () => switchTab('advisor'));
         $('tabFormulation').addEventListener('click', () => switchTab('formulation'));
 
-        $('dbTabScenarios').addEventListener('click', () => switchDbTab('scenarios'));
-        $('dbTabLogs').addEventListener('click', () => switchDbTab('logs'));
-        $('dbTabHistory').addEventListener('click', () => switchDbTab('history'));
-
         $('selectEdgeAdvisor').addEventListener('change', e => {
           state.selectedEdgeId = e.target.value;
           renderGraph();
           renderDefenseAdvisor();
-        });
-
-        $('scenarioForm').addEventListener('submit', async ev => {
-          ev.preventDefault();
-          const name = $('inputScenarioName').value.trim();
-          const description = $('inputScenarioDesc').value.trim();
-          if (!name) return;
-          try {
-            await apiRequest('/api/scenarios', {
-              method: 'POST',
-              body: JSON.stringify({
-                name,
-                description,
-                start: state.startId,
-                goal: state.goalId,
-                algo: state.selectedAlgo,
-                dlsLimit: state.dlsLimit
-              })
-            });
-            $('inputScenarioName').value = '';
-            $('inputScenarioDesc').value = '';
-            showToast(I18N[state.lang].toastScenarioSaved(name));
-            await refreshDbPanels();
-          } catch (err) {
-            showToast(err.message);
-          }
         });
 
         $('btnClearHistory').addEventListener('click', async () => {
@@ -2062,7 +1779,6 @@
         selectAlgorithm('ASTAR', false);
         setClickMode('inspect');
         switchTab('trace');
-        switchDbTab('scenarios');
 
         await Promise.all([
           prepareSearch(false),
