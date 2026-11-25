@@ -1,10 +1,12 @@
+import os
 import sqlite3
 from flask import Flask, jsonify, request, send_from_directory
 
 import database as db
 from search_engine import ALGORITHMS, CIA_LEVELS, run_search, severity_from_score
 
-app = Flask(__name__, static_folder=".", static_url_path="")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, static_folder=BASE_DIR, static_url_path="")
 db.init_db()
 
 
@@ -45,7 +47,7 @@ def resolve_patched(data, graph):
 
 @app.route("/")
 def index():
-    return send_from_directory(".", "index.html")
+    return send_from_directory(BASE_DIR, "index.html")
 
 
 @app.route("/api/health")

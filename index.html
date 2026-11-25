@@ -794,10 +794,6 @@
         lastEdgeClick: { id: null, time: 0 }
       };
 
-      const API_BASE = (window.location.protocol.startsWith('http') && window.location.port === '5000')
-        ? ''
-        : 'http://127.0.0.1:5000';
-
       const $ = id => document.getElementById(id);
       const getNodeMap = () => Object.fromEntries(state.nodes.map(n => [n.id, n]));
       const getEdgeMap = () => Object.fromEntries(state.edges.map(e => [e.id, e]));
@@ -811,8 +807,7 @@
       }
 
       async function apiRequest(url, options = {}) {
-        const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
-        const res = await fetch(fullUrl, {
+        const res = await fetch(url, {
           ...options,
           headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
         });
